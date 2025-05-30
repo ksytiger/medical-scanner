@@ -84,7 +84,7 @@ export function MobileMenu() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="flex items-center py-3 text-base font-medium hover:text-primary transition-colors"
+                className="flex items-center py-3 text-base font-medium hover:text-[#1B59FA] transition-colors"
               >
                 {link.name}
               </Link>
@@ -109,7 +109,9 @@ export function MobileMenu() {
             {!user && (
               <div className="mt-4">
                 <Link href="/login" onClick={() => setOpen(false)}>
-                  <Button className="w-full">로그인</Button>
+                  <Button className="w-full bg-[#1B59FA] hover:bg-blue-700 text-white">
+                    로그인/가입
+                  </Button>
                 </Link>
               </div>
             )}

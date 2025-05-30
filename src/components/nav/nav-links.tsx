@@ -12,6 +12,6 @@ type NavLink = {
 };
 
 export const navLinks: NavLink[] = [
-  { name: "홈", href: "/" },
+  { name: "의료기관 찾기", href: "#database" },
   { name: "프로필", href: "/profile", requireAuth: true },
 ];
