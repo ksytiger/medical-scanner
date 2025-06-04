@@ -9,7 +9,7 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import type { HospitalData } from "@/lib/medical/types"
 import { format } from "date-fns"
 
@@ -18,9 +18,10 @@ interface DataTableProps {
   currentPage: number
   totalPages: number
   onPageChange: (page: number) => void
+  isLoading?: boolean
 }
 
-export default function DataTable({ data, currentPage, totalPages, onPageChange }: DataTableProps) {
+export default function DataTable({ data, currentPage, totalPages, onPageChange, isLoading = false }: DataTableProps) {
   return (
     <div>
       <div className="rounded-md border">
@@ -36,7 +37,16 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#1B59FA]" />
+                    <span className="text-gray-500">데이터를 불러오는 중...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : data.length > 0 ? (
               data.map((hospital) => (
                 <TableRow key={hospital.id}>
                   <TableCell className="font-medium">
@@ -80,7 +90,7 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange 
         </Table>
       </div>
 
-      {data.length > 0 && (
+      {!isLoading && data.length > 0 && totalPages > 1 && (
         <div className="flex items-center justify-center space-x-2 py-4">
           <Button
             variant="outline"
