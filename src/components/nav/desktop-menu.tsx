@@ -9,21 +9,18 @@
  * 1. 네비게이션 링크 표시
  * 2. 사용자 인증 상태에 따른 정보 표시
  * 3. 사용자 프로필 드롭다운 메뉴 통합
- * 4. 테마 전환 기능 제공
- * 5. 미디어 쿼리를 통한 반응형 표시
+ * 4. 미디어 쿼리를 통한 반응형 표시
  *
  * 구현 로직:
  * - md 이상 화면 크기에서만 표시되도록 설계
  * - 사용자 인증 상태에 따른 조건부 렌더링
  * - 사용자 이메일에서 ID 부분 추출하여 표시
  * - UserNav 컴포넌트를 통한 사용자 드롭다운 메뉴 통합
- * - ThemeToggle 컴포넌트를 통한 테마 전환 기능 제공
  * - useAuth 훅을 통한 인증 상태 접근
  *
  * @dependencies
  * - ./user-nav (사용자 네비게이션 컴포넌트)
  * - ./nav-links (네비게이션 링크 정의)
- * - @/components/ui/theme-toggle (테마 전환 컴포넌트)
  * - @/components/auth/auth-provider (인증 컨텍스트)
  */
 
@@ -32,7 +29,6 @@
 import Link from "next/link";
 import UserNav from "./user-nav";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/components/auth/auth-provider";
 import { navLinks } from "./nav-links";
 
@@ -68,7 +64,6 @@ export default function DesktopMenu() {
               <span className="font-medium">{user.email?.split("@")[0]}</span>님
             </div>
             <UserNav />
-            <ThemeToggle />
           </>
         ) : (
           <>
@@ -77,7 +72,6 @@ export default function DesktopMenu() {
                 로그인/가입
               </Button>
             </Link>
-            <ThemeToggle />
           </>
         )}
       </div>

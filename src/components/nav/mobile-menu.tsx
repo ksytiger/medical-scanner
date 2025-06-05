@@ -9,8 +9,7 @@
  * 1. 모바일 화면에서 햄버거 메뉴 버튼 제공
  * 2. 사이드 드로어 형태의 메뉴 구현
  * 3. 네비게이션 링크 표시 (인증 상태에 따라 다른 메뉴 표시)
- * 4. 테마 전환 기능 제공
- * 5. 로그인/사용자 프로필 액세스 제공
+ * 4. 로그인/사용자 프로필 액세스 제공
  *
  * 구현 로직:
  * - Sheet 컴포넌트를 활용한 사이드 메뉴 구현
@@ -40,7 +39,6 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import UserNav from "./user-nav";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { navLinks } from "./nav-links";
 import { useAuth } from "@/components/auth/auth-provider";
 
@@ -94,20 +92,15 @@ export function MobileMenu() {
 
         <div className="mt-auto border-t">
           <div className="px-6 py-4">
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm font-medium">테마</span>
-              <ThemeToggle />
-            </div>
-
             {user && (
-              <div className="flex items-center justify-between py-2 mt-4">
+              <div className="flex items-center justify-between py-2">
                 <span className="text-sm font-medium">계정</span>
                 <UserNav />
               </div>
             )}
 
             {!user && (
-              <div className="mt-4">
+              <div>
                 <Link href="/login" onClick={() => setOpen(false)}>
                   <Button className="w-full bg-[#1B59FA] hover:bg-blue-700 text-white">
                     로그인/가입

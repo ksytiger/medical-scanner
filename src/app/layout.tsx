@@ -9,14 +9,12 @@
  * 1. 메타데이터 및 SEO 최적화 설정
  * 2. 전역 폰트 (Geist) 적용
  * 3. 오픈그래프 및 트위터 카드 설정
- * 4. 다크/라이트 테마 관리
- * 5. 구조화된 데이터(JSON-LD) 적용
- * 6. 웹 앱 매니페스트 연결
- * 7. 인증 상태 관리 (AuthProvider)
+ * 4. 구조화된 데이터(JSON-LD) 적용
+ * 5. 웹 앱 매니페스트 연결
+ * 6. 인증 상태 관리 (AuthProvider)
  *
  * 구현 로직:
  * - Next.js 메타데이터 API를 사용한 SEO 최적화
- * - ThemeProvider를 통한 다크 모드 지원
  * - Geist 및 Geist Mono 폰트 통합
  * - 공유 가능한 siteConfig를 통한 일관된 메타데이터 관리
  * - Vercel Analytics 통합
@@ -26,7 +24,6 @@
  * - next/font/google
  * - next
  * - @vercel/analytics/next
- * - @/components/ui/theme-provider
  * - @/components/seo/JsonLd
  * - @/utils/seo/constants
  * - @/components/auth/auth-provider
@@ -35,7 +32,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Analytics } from "@vercel/analytics/next";
 import { WebsiteJsonLd, OrganizationJsonLd } from "@/components/seo/JsonLd";
 import { siteConfig } from "@/utils/seo/constants";
@@ -151,14 +147,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>{children}</AuthProvider>
-        </ThemeProvider>
+        <AuthProvider>{children}</AuthProvider>
         <Analytics />
         <WebsiteJsonLd />
         <OrganizationJsonLd />

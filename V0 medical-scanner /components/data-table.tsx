@@ -99,7 +99,7 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange 
               <Button
                 key={pageNum}
                 variant={currentPage === pageNum ? "default" : "outline"}
-                className={currentPage === pageNum ? "bg-[#1B59FA] hover:bg-blue-700" : ""}
+                className={`min-w-[40px] w-10 h-9 p-0 flex items-center justify-center ${currentPage === pageNum ? "bg-[#1B59FA] hover:bg-blue-700" : ""}`}
                 onClick={() => onPageChange(pageNum)}
               >
                 {pageNum}

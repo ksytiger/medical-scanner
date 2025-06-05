@@ -38,7 +38,7 @@ export default function DatabaseSection() {
     keyword: "",
   })
 
-  const itemsPerPage = 10
+  const itemsPerPage = 50
   const totalPages = Math.ceil(filteredData.length / itemsPerPage)
   const currentData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 

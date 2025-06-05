@@ -39,12 +39,14 @@ function PaginationItem({ ...props }: React.ComponentProps<"li">) {
 
 type PaginationLinkProps = {
   isActive?: boolean;
+  isPageNumber?: boolean;
 } & Pick<React.ComponentProps<typeof Button>, "size"> &
   React.ComponentProps<"a">;
 
 function PaginationLink({
   className,
   isActive,
+  isPageNumber = false,
   size = "icon",
   ...props
 }: PaginationLinkProps) {
@@ -58,6 +60,7 @@ function PaginationLink({
           variant: isActive ? "outline" : "ghost",
           size,
         }),
+        isPageNumber && "min-w-[40px] w-10 h-9 p-0 flex items-center justify-center",
         className,
       )}
       {...props}
