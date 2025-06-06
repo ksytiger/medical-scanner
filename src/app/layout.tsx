@@ -51,7 +51,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#171717",
+  userScalable: true,
+  themeColor: "#1B59FA", // 브랜드 컬러로 변경
+  colorScheme: "light dark",
 };
 
 export const metadata: Metadata = {

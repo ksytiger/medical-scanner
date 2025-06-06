@@ -126,8 +126,9 @@ export async function getMedicalFacilities(filters?: Partial<FilterState>): Prom
     
     // 데이터 실행 (전체 데이터 가져오기)
     // 첫 번째 시도: 일반 쿼리로 모든 데이터 가져오기
-    let { data, error } = await query
+    const { data: initialData, error } = await query
       .order('license_date', { ascending: false })
+    let data = initialData
     
     // 만약 데이터가 1000개이고 전체 개수가 더 많다면, 페이지네이션으로 나머지 가져오기
     if (data && totalCount && data.length === 1000 && totalCount > 1000) {
@@ -290,6 +291,181 @@ export async function getFilterOptions() {
     
   } catch (error) {
     console.error("❌ Failed to fetch filter options:", error)
+    console.groupEnd()
+    throw error
+  }
+}
+
+/**
+ * 의료과목 목록을 Supabase에서 조회합니다
+ */
+export async function getMedicalSubjects(): Promise<string[]> {
+  console.group("🩺 Medical Subjects API Call")
+  
+  try {
+    const supabase = await createServerSupabaseClient()
+    
+    const { data, error } = await supabase
+      .from("medical_subject")
+      .select("subject_name")
+      .order("subject_name")
+    
+    if (error) {
+      console.error("❌ Medical subjects query error:", error)
+      throw new Error(`의료과목 조회 실패: ${error.message}`)
+    }
+    
+    if (!data) {
+      console.warn("⚠️ No medical subjects found")
+      return []
+    }
+    
+    const subjects = data.map(item => item.subject_name).filter(Boolean)
+    console.log(`✅ Successfully fetched ${subjects.length} medical subjects`)
+    console.log("Medical subjects:", subjects)
+    console.groupEnd()
+    
+    return subjects
+    
+  } catch (error) {
+    console.error("❌ Failed to fetch medical subjects:", error)
+    console.groupEnd()
+    throw error
+  }
+}
+
+/**
+ * 의료기관과 진료과목 관계를 기반으로 진료과목 필터링된 의료기관을 조회합니다
+ */
+export async function getMedicalFacilitiesWithSubjectFilter(filters?: Partial<FilterState>): Promise<HospitalData[]> {
+  console.group("🏥 Medical Facilities with Subject Filter API Call")
+  console.log("Filters:", filters)
+  
+  try {
+    const supabase = await createServerSupabaseClient()
+    
+    let query = supabase
+      .from("medical_facility")
+      .select(`
+        id,
+        name,
+        service_type,
+        license_date,
+        phone,
+        healthcare_type,
+        num_doctors,
+        num_rooms,
+        num_beds,
+        total_area,
+        address_id,
+        subject_count,
+        address:address_id (
+          road_address,
+          road_postcode
+        ),
+        facility_medical_subject!inner (
+          subject_id,
+          medical_subject!inner (
+            subject_name
+          )
+        )
+      `)
+    
+    // 진료과목 필터 (JOIN을 통한 필터링)
+    if (filters?.specialties && filters.specialties.length > 0) {
+      console.log("🏷️ Subject filter:", filters.specialties)
+      // facility_medical_subject와 medical_subject를 JOIN하여 필터링
+      query = query.in('facility_medical_subject.medical_subject.subject_name', filters.specialties)
+    }
+    
+    // 날짜 범위 필터
+    if (filters?.dateRange) {
+      const fromDate = filters.dateRange.from.toISOString().split('T')[0]
+      const toDate = filters.dateRange.to.toISOString().split('T')[0]
+      
+      console.log(`📅 Date filter: ${fromDate} ~ ${toDate}`)
+      query = query
+        .gte('license_date', fromDate)
+        .lte('license_date', toDate)
+    }
+    
+    // 키워드 검색 (병원명)
+    if (filters?.keyword && filters.keyword.trim()) {
+      console.log(`🔍 Keyword filter: ${filters.keyword}`)
+      query = query.ilike('name', `%${filters.keyword.trim()}%`)
+    }
+    
+    // 연락처 유무 필터
+    if (filters?.hasContact) {
+      console.log("📞 Contact filter: only with phone numbers")
+      query = query.not('phone', 'is', null)
+    }
+    
+    const { data, error } = await query.order('license_date', { ascending: false })
+    
+    if (error) {
+      console.error("❌ Supabase query error:", error)
+      throw new Error(`데이터베이스 조회 실패: ${error.message}`)
+    }
+    
+    if (!data) {
+      console.warn("⚠️ No data returned from query")
+      return []
+    }
+    
+    console.log(`✅ Query successful: ${data.length} facilities found`)
+    
+    // 중복 제거 (한 의료기관이 여러 진료과목을 가질 수 있으므로)
+    const uniqueFacilities = data.reduce((acc: any[], current) => {
+      const existing = acc.find(item => item.id === current.id)
+      if (!existing) {
+        acc.push(current)
+      }
+      return acc
+    }, [])
+    
+    console.log(`🎯 Unique facilities after deduplication: ${uniqueFacilities.length}`)
+    
+    // 데이터 변환
+    const transformedData = uniqueFacilities.map((facility) => {
+      // address가 배열 형태로 올 수 있으므로 처리
+      const addressData = Array.isArray(facility.address) ? facility.address[0] : facility.address
+      
+      const facilityWithAddress: MedicalFacility = {
+        ...facility,
+        road_address: addressData?.road_address,
+        road_postcode: addressData?.road_postcode,
+      }
+      
+      return transformMedicalFacility(facilityWithAddress)
+    })
+    
+    // 지역 필터링 (주소 기반, 서버에서 후처리)
+    let filteredData = transformedData
+    
+    if (filters?.region?.sido && filters.region.sido !== "전체") {
+      console.log(`🗺️ Region filter - Sido: ${filters.region.sido}`)
+      filteredData = filteredData.filter(item => 
+        item.sido.includes(filters.region.sido) || 
+        item.address.includes(filters.region.sido)
+      )
+    }
+    
+    if (filters?.region?.gugun && filters.region.gugun !== "전체") {
+      console.log(`🗺️ Region filter - Gugun: ${filters.region.gugun}`)
+      filteredData = filteredData.filter(item => 
+        item.gugun.includes(filters.region.gugun) || 
+        item.address.includes(filters.region.gugun)
+      )
+    }
+    
+    console.log(`🎯 Final filtered results: ${filteredData.length} facilities`)
+    console.groupEnd()
+    
+    return filteredData
+    
+  } catch (error) {
+    console.error("❌ Failed to fetch medical facilities with subject filter:", error)
     console.groupEnd()
     throw error
   }

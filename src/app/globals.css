@@ -119,4 +119,34 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* 모바일 친화적인 기본 스타일 */
+  html {
+    @apply scroll-smooth;
+  }
+  
+  /* 터치 스크린을 위한 최소 터치 영역 */
+  button, 
+  [role="button"], 
+  .btn {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  /* 모바일에서 텍스트 크기 자동 조정 방지 */
+  input, 
+  textarea, 
+  select {
+    @apply text-base;
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  /* 포커스 가시성 향상 */
+  @media (max-width: 768px) {
+    input:focus,
+    textarea:focus,
+    select:focus,
+    button:focus {
+      @apply ring-2 ring-blue-500 ring-offset-2;
+    }
+  }
 }

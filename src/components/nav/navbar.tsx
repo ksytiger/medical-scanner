@@ -17,7 +17,7 @@ import DesktopMenu from "./desktop-menu";
 export function Navbar() {
   return (
     <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-10">
-      <div className="container mx-auto flex justify-between items-center py-4 px-4 sm:px-6">
+      <div className="container mx-auto flex justify-between items-center py-4 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <MobileMenu />
           <Link href="/medical-scanner" className="flex items-center gap-2 text-lg font-bold text-[#1B59FA]">

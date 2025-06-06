@@ -22,7 +22,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import FilterBar from "@/components/medical/filter-bar"
 import DataTable from "@/components/medical/data-table"
 import { FileSpreadsheet, FileText, Loader2 } from "lucide-react"
-import { getMedicalFacilities } from "@/lib/medical/api"
+import { getMedicalFacilities, getMedicalFacilitiesWithSubjectFilter } from "@/lib/medical/api"
 import type { HospitalData, FilterState } from "@/lib/medical/types"
 
 export default function DatabaseSection() {
@@ -51,8 +51,15 @@ export default function DatabaseSection() {
     setError(null)
     
     try {
-      const data = await getMedicalFacilities(currentFilters)
-      console.log(`✅ Successfully loaded ${data.length} facilities`)
+      // 진료과목 필터가 있으면 전용 API 사용, 없으면 기존 API 사용
+      const hasSpecialtyFilter = currentFilters.specialties && currentFilters.specialties.length > 0
+      console.log("🏷️ Has specialty filter:", hasSpecialtyFilter)
+      
+      const data = hasSpecialtyFilter 
+        ? await getMedicalFacilitiesWithSubjectFilter(currentFilters)
+        : await getMedicalFacilities(currentFilters)
+        
+      console.log(`✅ Successfully loaded ${data.length} facilities using ${hasSpecialtyFilter ? 'subject filter' : 'standard'} API`)
       setFilteredData(data)
       setCurrentPage(1) // 새 데이터 로드 시 첫 페이지로 이동
     } catch (err) {
@@ -100,15 +107,17 @@ export default function DatabaseSection() {
   }
 
   return (
-    <section id="database" className="py-12 bg-gray-50">
-      <div className="container mx-auto px-4">
-        <h2 className="text-2xl font-bold mb-6 text-gray-900">의료기관 찾기</h2>
+    <section id="database" className="py-12 sm:py-16 bg-gray-50">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 text-gray-900 text-center sm:text-left">의료기관 찾기</h2>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <FilterBar filters={filters} onFilterChange={handleFilterChange} />
 
-            <div className="flex items-center justify-between my-4">
+            {/* 검색 결과 및 다운로드 영역 - 모바일 최적화 */}
+            <div className="my-6 space-y-4">
+              {/* 검색 결과 정보 */}
               <div className="text-sm font-medium text-gray-500">
                 {isLoading ? (
                   <div className="flex items-center gap-2">
@@ -116,32 +125,41 @@ export default function DatabaseSection() {
                     <span>데이터를 불러오는 중...</span>
                   </div>
                 ) : error ? (
-                  <div className="flex items-center gap-2 text-red-600">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 text-red-600">
                     <span>❌ 데이터 조회 실패</span>
                     <Button
                       variant="outline" 
                       size="sm"
                       onClick={handleRetry}
-                      className="ml-2"
+                      className="w-fit"
                     >
                       다시 시도
                     </Button>
                   </div>
                 ) : (
-                  <>
-                    총 <span className="text-[#1B59FA] font-bold">{filteredData.length.toLocaleString()}</span>건의
+                  <div className="text-center sm:text-left">
+                    총 <span className="text-[#1B59FA] font-bold text-base">{filteredData.length.toLocaleString()}</span>건의
                     의료기관이 검색되었습니다.
-                  </>
+                  </div>
                 )}
               </div>
               
+              {/* 다운로드 버튼들 - 모바일에서는 풀 너비 스택 */}
               {!isLoading && !error && (
-                <div className="flex gap-3">
-                  <Button variant="outline" className="flex items-center gap-2" onClick={handleExportExcel}>
+                <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center justify-center gap-2 h-11 w-full sm:w-auto" 
+                    onClick={handleExportExcel}
+                  >
                     <FileSpreadsheet className="h-4 w-4" />
                     <span>Excel 다운로드</span>
                   </Button>
-                  <Button variant="outline" className="flex items-center gap-2" onClick={handleExportPDF}>
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center justify-center gap-2 h-11 w-full sm:w-auto" 
+                    onClick={handleExportPDF}
+                  >
                     <FileText className="h-4 w-4" />
                     <span>PDF 다운로드</span>
                   </Button>
