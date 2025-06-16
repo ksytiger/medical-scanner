@@ -45,8 +45,7 @@ export interface FilterState {
     from: Date
     to: Date
   }
-  specialties: string[]
-  categories?: string[]
+  selectedCategory: string | null
   region: {
     sido: string
     gugun: string

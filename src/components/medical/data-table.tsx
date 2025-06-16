@@ -233,20 +233,28 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
             
             {/* 페이지 번호 버튼들 - 모바일에서는 더 적게 표시 */}
             <div className="flex space-x-2">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum = i + 1
+              {(() => {
+                const getPageNumbers = () => {
+                  const delta = 2; // 현재 페이지 양쪽으로 보여줄 페이지 수
+                  const range = [];
+                  const rangeWithDots = [];
 
-                // Adjust page numbers if current page is near the end
-                if (currentPage > 3 && totalPages > 5) {
-                  pageNum = Math.min(currentPage - 2 + i, totalPages)
-                  if (pageNum > totalPages - 4 && i < 4) {
-                    pageNum = totalPages - 4 + i
+                  // 시작과 끝 페이지 계산
+                  const start = Math.max(1, currentPage - delta);
+                  const end = Math.min(totalPages, currentPage + delta);
+
+                  // 페이지 번호 배열 생성
+                  for (let i = start; i <= end; i++) {
+                    range.push(i);
                   }
-                }
 
-                return (
+                  // 최대 5개만 표시하도록 제한
+                  return range.slice(0, 5);
+                };
+
+                return getPageNumbers().map((pageNum) => (
                   <Button
-                    key={pageNum}
+                    key={`page-${pageNum}`}
                     variant={currentPage === pageNum ? "default" : "outline"}
                     className={`min-w-[40px] w-10 h-10 p-0 flex items-center justify-center ${
                       currentPage === pageNum ? "bg-[#1B59FA] hover:bg-blue-700" : ""
@@ -255,8 +263,8 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
                   >
                     {pageNum}
                   </Button>
-                )
-              })}
+                ));
+              })()}
             </div>
             
             <Button

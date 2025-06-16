@@ -2,8 +2,8 @@
  * @file filter-bar.tsx
  * @description 의료기관 스캐너 필터바 컴포넌트
  * 
- * 날짜 범위, 진료과목, 지역, 연락처 유무, 키워드 등의 필터 기능을 제공
- * Supabase에서 진료과목 데이터를 동적으로 가져와 필터에 사용
+ * 날짜 범위, 진료과목(단일 선택), 지역, 연락처 유무, 키워드 등의 필터 기능을 제공
+ * 진료과목은 깔끔한 드롭다운 형태로 한번에 하나만 선택 가능
  * 모바일에서는 접힌 상태로 시작하며, 토글로 열고 닫을 수 있음
  */
 
@@ -19,15 +19,47 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { Check, CalendarIcon, Filter, ChevronDown, ChevronUp, X, Search } from "lucide-react"
+import { CalendarIcon, Filter, ChevronDown, ChevronUp, X, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import type { FilterState } from "@/lib/medical/types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getMedicalSubjects } from "@/lib/medical/api"
 
-const categories = ["의원", "병원", "약국"]
+// 요청된 카테고리 목록 (논리적 순서로 정렬)
+const categories = [
+  // 기본 분류
+  "의원",
+  "약국", 
+  "병원",
+  
+  // 전문 진료과
+  "피부과",
+  "성형외과", 
+  "안과",
+  "치과의원",
+  "한의원",
+  "정형외과",
+  "신경외과",
+  "신경과",
+  "내과",
+  "이비인후과",
+  "정신건강의학과",
+  "산부인과",
+  "소아청소년과",
+  "가정의학과",
+  "비뇨기과",
+  "재활의학과",
+  "마취통증의학과",
+  
+  // 기타 분류
+  "기타의원",
+  "보건기관",
+  "종합병원",
+  "요양병원",
+  "한방병원",
+  "치과병원",
+  "정신병원"
+]
 
 const regions = {
   서울: [
@@ -118,57 +150,10 @@ interface FilterBarProps {
 
 export default function FilterBar({ filters, onFilterChange }: FilterBarProps) {
   const [localFilters, setLocalFilters] = useState<FilterState>(filters)
-  const [specialtyPopoverOpen, setSpecialtyPopoverOpen] = useState(false)
   const [availableGugun, setAvailableGugun] = useState<string[]>([])
-  const [activeTab, setActiveTab] = useState<string>("specialty")
-  const [specialties, setSpecialties] = useState<string[]>([])
-  const [isLoadingSpecialties, setIsLoadingSpecialties] = useState(true)
   
   // 모바일 필터바 접힘/펼침 상태
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false)
-
-  // 진료과목 데이터 로드
-  useEffect(() => {
-    const loadMedicalSubjects = async () => {
-      console.group("🩺 Loading medical subjects for filter")
-      
-      try {
-        setIsLoadingSpecialties(true)
-        const subjects = await getMedicalSubjects()
-        console.log(`✅ Loaded ${subjects.length} medical subjects`)
-        
-        // 원하는 순서로 재정렬
-        const desiredOrder = [
-          "성형외과", "안과", "피부과", "치과", "한의원", "일반외과", "정형외과", 
-          "정신건강의학과", "이비인후과", "가정의학과", "소아청소년과", "산부인과",
-          "신경과", "신경외과", "비뇨기과", "영상의학과", "내과", "마취통증의학과",
-          "재활의학과", "기타의원", "보건기관"
-        ]
-        
-        const orderedSubjects = desiredOrder.filter(item => subjects.includes(item))
-        // 만약 desiredOrder에 없는 항목이 있다면 마지막에 추가
-        const remainingSubjects = subjects.filter(item => !desiredOrder.includes(item))
-        const finalOrderedSubjects = [...orderedSubjects, ...remainingSubjects]
-        
-        console.log("📋 Reordered subjects:", finalOrderedSubjects)
-        setSpecialties(finalOrderedSubjects)
-      } catch (error) {
-        console.error("❌ Failed to load medical subjects:", error)
-        // 실패 시 기본값 사용 (요청된 순서로 정렬)
-        setSpecialties([
-          "성형외과", "안과", "피부과", "치과", "한의원", "일반외과", "정형외과", 
-          "정신건강의학과", "이비인후과", "가정의학과", "소아청소년과", "산부인과",
-          "신경과", "신경외과", "비뇨기과", "영상의학과", "내과", "마취통증의학과",
-          "재활의학과", "기타의원", "보건기관"
-        ])
-      } finally {
-        setIsLoadingSpecialties(false)
-        console.groupEnd()
-      }
-    }
-
-    loadMedicalSubjects()
-  }, [])
 
   useEffect(() => {
     if (localFilters.region.sido && regions[localFilters.region.sido as keyof typeof regions]) {
@@ -178,38 +163,17 @@ export default function FilterBar({ filters, onFilterChange }: FilterBarProps) {
     }
   }, [localFilters.region.sido])
 
-  const toggleSpecialty = (specialty: string) => {
-    if (localFilters.specialties.includes(specialty)) {
-      setLocalFilters({
-        ...localFilters,
-        specialties: localFilters.specialties.filter((s) => s !== specialty),
-      })
-    } else {
-      setLocalFilters({
-        ...localFilters,
-        specialties: [...localFilters.specialties, specialty],
-      })
-    }
-  }
-
-  const toggleCategory = (category: string) => {
-    if (localFilters.categories?.includes(category)) {
-      setLocalFilters({
-        ...localFilters,
-        categories: localFilters.categories.filter((c) => c !== category),
-      })
-    } else {
-      setLocalFilters({
-        ...localFilters,
-        categories: [...(localFilters.categories || []), category],
-      })
-    }
+  const handleCategoryChange = (category: string) => {
+    setLocalFilters({
+      ...localFilters,
+      selectedCategory: category === "전체" ? null : category,
+    })
   }
 
   const handleSidoChange = (value: string) => {
     setLocalFilters({
       ...localFilters,
-      region: { sido: value, gugun: "" },
+      region: { sido: value, gugun: "전체" },
     })
   }
 
@@ -239,8 +203,8 @@ export default function FilterBar({ filters, onFilterChange }: FilterBarProps) {
   }
 
   const handleKeywordKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleKeywordSearch()
+    if (e.key === "Enter") {
+      applyFilters()
     }
   }
 
@@ -251,9 +215,8 @@ export default function FilterBar({ filters, onFilterChange }: FilterBarProps) {
   const resetFilters = () => {
     const resetState: FilterState = {
       dateRange: { from: new Date("2023-01-01"), to: new Date() },
-      specialties: [],
-      categories: [],
-      region: { sido: "", gugun: "" },
+      selectedCategory: null,
+      region: { sido: "전체", gugun: "전체" },
       hasContact: false,
       keyword: "",
     }
@@ -261,47 +224,40 @@ export default function FilterBar({ filters, onFilterChange }: FilterBarProps) {
     onFilterChange(resetState)
   }
 
-  // 현재 적용된 필터 개수 계산 (모바일 상세 필터 개수)
   const getActiveFilterCount = () => {
     let count = 0
     
-    // 날짜 범위 필터 체크
-    const defaultFromDate = new Date("2023-01-01")
-    const currentDate = new Date()
-    if (
-      localFilters.dateRange.from?.getTime() !== defaultFromDate.getTime() ||
-      localFilters.dateRange.to?.getTime() !== currentDate.getTime()
-    ) {
+    // 날짜 범위가 기본값이 아닌 경우
+    const defaultFrom = new Date("2023-01-01")
+    const defaultTo = new Date()
+    if (localFilters.dateRange.from.getTime() !== defaultFrom.getTime() || 
+        localFilters.dateRange.to.getTime() !== defaultTo.getTime()) {
       count++
     }
     
-    // 진료과목 필터 체크
-    if (localFilters.specialties.length > 0) count++
+    // 카테고리 선택된 경우
+    if (localFilters.selectedCategory) {
+      count++
+    }
     
-    // 분류 필터 체크
-    if (localFilters.categories && localFilters.categories.length > 0) count++
+    // 지역 선택된 경우
+    if (localFilters.region.sido && localFilters.region.sido !== "전체") {
+      count++
+    }
     
-    // 지역 필터 체크
-    if (localFilters.region.sido && localFilters.region.sido !== "전체") count++
-    
-    // 연락처 필터 체크
-    if (localFilters.hasContact) count++
-    
-    // 모바일에서는 키워드가 상단에 따로 있으므로 상세 필터 개수에서 제외
+    // 연락처 필터 활성화된 경우
+    if (localFilters.hasContact) {
+      count++
+    }
     
     return count
   }
 
-  // 적용된 필터 요약 텍스트 생성
   const getFilterSummary = () => {
-    const summaryParts = []
+    const summaryParts: string[] = []
     
-    if (localFilters.specialties.length > 0) {
-      summaryParts.push(`진료과목 ${localFilters.specialties.length}개`)
-    }
-    
-    if (localFilters.categories && localFilters.categories.length > 0) {
-      summaryParts.push(`분류 ${localFilters.categories.length}개`)
+    if (localFilters.selectedCategory) {
+      summaryParts.push(localFilters.selectedCategory)
     }
     
     if (localFilters.region.sido && localFilters.region.sido !== "전체") {
@@ -311,8 +267,6 @@ export default function FilterBar({ filters, onFilterChange }: FilterBarProps) {
     if (localFilters.hasContact) {
       summaryParts.push("연락처 있음")
     }
-    
-    // 키워드는 항상 보이므로 요약에서 제외 (필요하다면 추가 가능)
     
     return summaryParts.length > 0 ? summaryParts.join(", ") : "상세 필터를 설정해보세요"
   }
@@ -389,187 +343,95 @@ export default function FilterBar({ filters, onFilterChange }: FilterBarProps) {
           {/* 날짜 범위 필터 */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-700">개원일 범위</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal h-11 text-sm",
-                    !localFilters.dateRange.from && "text-muted-foreground",
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">
-                    {localFilters.dateRange.from ? (
-                      localFilters.dateRange.to ? (
-                        <>
-                          {format(localFilters.dateRange.from, "yy-MM-dd")} ~{" "}
-                          {format(localFilters.dateRange.to, "yy-MM-dd")}
-                        </>
-                      ) : (
-                        format(localFilters.dateRange.from, "yy-MM-dd")
-                      )
-                    ) : (
-                      "날짜 선택"
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-11 text-sm",
+                      !localFilters.dateRange.from && "text-muted-foreground"
                     )}
-                  </span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="range"
-                  defaultMonth={localFilters.dateRange.from}
-                  selected={{
-                    from: localFilters.dateRange.from,
-                    to: localFilters.dateRange.to,
-                  }}
-                  onSelect={(range) => {
-                    if (range?.from) {
-                      setLocalFilters({
-                        ...localFilters,
-                        dateRange: {
-                          from: range.from,
-                          to: range.to || range.from,
-                        },
-                      })
-                    }
-                  }}
-                  disabled={{ before: new Date("2023-01-01") }}
-                />
-              </PopoverContent>
-            </Popover>
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {localFilters.dateRange.from ? (
+                      format(localFilters.dateRange.from, "yyyy-MM-dd")
+                    ) : (
+                      <span>시작일</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={localFilters.dateRange.from}
+                    onSelect={(date) => date && setLocalFilters({
+                      ...localFilters,
+                      dateRange: { ...localFilters.dateRange, from: date }
+                    })}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-11 text-sm",
+                      !localFilters.dateRange.to && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {localFilters.dateRange.to ? (
+                      format(localFilters.dateRange.to, "yyyy-MM-dd")
+                    ) : (
+                      <span>종료일</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={localFilters.dateRange.to}
+                    onSelect={(date) => date && setLocalFilters({
+                      ...localFilters,
+                      dateRange: { ...localFilters.dateRange, to: date }
+                    })}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
-          {/* 진료과목 필터 */}
+          {/* 진료과목/분류 필터 (심플한 드롭다운) */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-700">진료과목</Label>
-            <Popover open={specialtyPopoverOpen} onOpenChange={setSpecialtyPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-between h-11 text-sm">
-                  <span className="truncate">
-                    {localFilters.specialties.length > 0 ||
-                    (localFilters.categories && localFilters.categories.length > 0)
-                      ? `${(localFilters.specialties?.length || 0) + (localFilters.categories?.length || 0)}개 선택됨`
-                      : "진료과목 선택"}
-                  </span>
-                  <span className="ml-2 flex-shrink-0">▼</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-0" align="start">
-                <div className="p-4">
-                  <Tabs defaultValue="specialty" value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="grid w-full grid-cols-2 mb-4">
-                      <TabsTrigger value="category">분류</TabsTrigger>
-                      <TabsTrigger value="specialty">진료과목</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="category" className="max-h-60 overflow-y-auto">
-                      <div className="space-y-2">
-                        {categories.map((category) => (
-                          <div
-                            key={category}
-                            className={cn(
-                              "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
-                              localFilters.categories?.includes(category) ? "bg-blue-50" : "hover:bg-gray-50",
-                            )}
-                            onClick={() => toggleCategory(category)}
-                          >
-                            <div
-                              className={cn(
-                                "w-5 h-5 rounded-sm border flex items-center justify-center",
-                                localFilters.categories?.includes(category)
-                                  ? "bg-[#1B59FA] border-[#1B59FA]"
-                                  : "border-gray-300",
-                              )}
-                            >
-                              {localFilters.categories?.includes(category) && <Check className="h-3 w-3 text-white" />}
-                            </div>
-                            <span className="text-sm font-medium">{category}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="specialty" className="max-h-60 overflow-y-auto">
-                      {isLoadingSpecialties ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="text-sm text-gray-500">진료과목 로딩 중...</div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {specialties.map((specialty) => (
-                            <div
-                              key={specialty}
-                              className={cn(
-                                "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
-                                localFilters.specialties.includes(specialty) ? "bg-blue-50" : "hover:bg-gray-50",
-                              )}
-                              onClick={() => toggleSpecialty(specialty)}
-                            >
-                              <div
-                                className={cn(
-                                  "w-5 h-5 rounded-sm border flex items-center justify-center",
-                                  localFilters.specialties.includes(specialty)
-                                    ? "bg-[#1B59FA] border-[#1B59FA]"
-                                    : "border-gray-300",
-                                )}
-                              >
-                                {localFilters.specialties.includes(specialty) && <Check className="h-3 w-3 text-white" />}
-                              </div>
-                              <span className="text-sm font-medium">{specialty}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </div>
-                <div className="flex items-center justify-between p-4 border-t">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setLocalFilters({
-                        ...localFilters,
-                        specialties: [],
-                        categories: [],
-                      })
-                    }}
-                  >
-                    초기화
-                  </Button>
-                  <Button size="sm" onClick={() => setSpecialtyPopoverOpen(false)}>
-                    확인
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-            {(localFilters.specialties.length > 0 || (localFilters.categories && localFilters.categories.length > 0)) && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {localFilters.categories?.map((category) => (
-                  <Badge key={category} variant="secondary" className="text-xs flex items-center gap-1">
-                    {category}
-                    <X 
-                      className="h-3 w-3 cursor-pointer hover:text-red-500 transition-colors" 
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleCategory(category)
-                      }} 
-                    />
-                  </Badge>
+            <Select value={localFilters.selectedCategory || "전체"} onValueChange={handleCategoryChange}>
+              <SelectTrigger className="w-full h-11 text-sm flex items-center justify-between px-3 py-2 border rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#1B59FA] focus:border-[#1B59FA] transition-colors">
+                <SelectValue placeholder="진료과목 선택" className="text-left truncate" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px] z-50">
+                <SelectItem value="전체" className="text-sm py-2 px-3 cursor-pointer hover:bg-gray-100 focus:bg-gray-100">
+                  <span className="font-medium text-gray-700">전체</span>
+                </SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category} className="text-sm py-2 px-3 cursor-pointer hover:bg-gray-100 focus:bg-gray-100">
+                    <span className={cn(
+                      "font-medium",
+                      localFilters.selectedCategory === category 
+                        ? "text-[#1B59FA]" 
+                        : "text-gray-700"
+                    )}>
+                      {category}
+                    </span>
+                  </SelectItem>
                 ))}
-                {localFilters.specialties.map((specialty) => (
-                  <Badge key={specialty} variant="secondary" className="text-xs flex items-center gap-1">
-                    {specialty}
-                    <X 
-                      className="h-3 w-3 cursor-pointer hover:text-red-500 transition-colors" 
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleSpecialty(specialty)
-                      }} 
-                    />
-                  </Badge>
-                ))}
-              </div>
-            )}
+              </SelectContent>
+            </Select>
+
           </div>
 
           {/* 지역 필터 */}
@@ -577,13 +439,13 @@ export default function FilterBar({ filters, onFilterChange }: FilterBarProps) {
             <Label className="text-sm font-medium text-gray-700">지역</Label>
             <div className="flex gap-2">
               <Select value={localFilters.region.sido || "전체"} onValueChange={handleSidoChange}>
-                <SelectTrigger className="flex-1 h-11">
-                  <SelectValue placeholder="시/도" />
+                <SelectTrigger className="flex-1 h-11 text-sm flex items-center justify-between px-3 py-2 border rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#1B59FA] focus:border-[#1B59FA] transition-colors">
+                  <SelectValue placeholder="시/도" className="text-left truncate" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="전체">전체</SelectItem>
+                <SelectContent className="z-50">
+                  <SelectItem value="전체" className="text-sm py-2 px-3 cursor-pointer hover:bg-gray-100 focus:bg-gray-100">전체</SelectItem>
                   {Object.keys(regions).map((sido) => (
-                    <SelectItem key={sido} value={sido}>
+                    <SelectItem key={sido} value={sido} className="text-sm py-2 px-3 cursor-pointer hover:bg-gray-100 focus:bg-gray-100">
                       {sido}
                     </SelectItem>
                   ))}
@@ -595,13 +457,16 @@ export default function FilterBar({ filters, onFilterChange }: FilterBarProps) {
                 onValueChange={handleGugunChange}
                 disabled={!localFilters.region.sido}
               >
-                <SelectTrigger className="flex-1 h-11">
-                  <SelectValue placeholder="구/군" />
+                <SelectTrigger className={cn(
+                  "flex-1 h-11 text-sm flex items-center justify-between px-3 py-2 border rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#1B59FA] focus:border-[#1B59FA] transition-colors",
+                  !localFilters.region.sido && "opacity-50 cursor-not-allowed"
+                )}>
+                  <SelectValue placeholder="구/군" className="text-left truncate" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="전체">전체</SelectItem>
+                <SelectContent className="z-50">
+                  <SelectItem value="전체" className="text-sm py-2 px-3 cursor-pointer hover:bg-gray-100 focus:bg-gray-100">전체</SelectItem>
                   {availableGugun.map((gugun) => (
-                    <SelectItem key={gugun} value={gugun}>
+                    <SelectItem key={gugun} value={gugun} className="text-sm py-2 px-3 cursor-pointer hover:bg-gray-100 focus:bg-gray-100">
                       {gugun}
                     </SelectItem>
                   ))}

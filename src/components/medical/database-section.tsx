@@ -31,9 +31,9 @@ export default function DatabaseSection() {
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<FilterState>({
-    dateRange: { from: new Date("1900-01-01"), to: new Date() },
-    specialties: [],
-    region: { sido: "", gugun: "" },
+    dateRange: { from: new Date("2023-01-01"), to: new Date() },
+    selectedCategory: null,
+    region: { sido: "전체", gugun: "전체" },
     hasContact: false,
     keyword: "",
   })
@@ -51,15 +51,15 @@ export default function DatabaseSection() {
     setError(null)
     
     try {
-      // 진료과목 필터가 있으면 전용 API 사용, 없으면 기존 API 사용
-      const hasSpecialtyFilter = currentFilters.specialties && currentFilters.specialties.length > 0
-      console.log("🏷️ Has specialty filter:", hasSpecialtyFilter)
+      // 카테고리 필터가 있으면 전용 API 사용, 없으면 기존 API 사용
+      const hasCategoryFilter = currentFilters.selectedCategory !== null
+      console.log("🏷️ Has category filter:", hasCategoryFilter, currentFilters.selectedCategory)
       
-      const data = hasSpecialtyFilter 
+      const data = hasCategoryFilter 
         ? await getMedicalFacilitiesWithSubjectFilter(currentFilters)
         : await getMedicalFacilities(currentFilters)
         
-      console.log(`✅ Successfully loaded ${data.length} facilities using ${hasSpecialtyFilter ? 'subject filter' : 'standard'} API`)
+      console.log(`✅ Successfully loaded ${data.length} facilities using ${hasCategoryFilter ? 'category filter' : 'standard'} API`)
       setFilteredData(data)
       setCurrentPage(1) // 새 데이터 로드 시 첫 페이지로 이동
     } catch (err) {
