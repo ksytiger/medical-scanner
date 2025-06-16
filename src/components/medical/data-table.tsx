@@ -237,7 +237,6 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
                 const getPageNumbers = () => {
                   const delta = 2; // 현재 페이지 양쪽으로 보여줄 페이지 수
                   const range = [];
-                  const rangeWithDots = [];
 
                   // 시작과 끝 페이지 계산
                   const start = Math.max(1, currentPage - delta);
