@@ -1,11 +1,11 @@
 /**
  * @file data-table.tsx
  * @description 의료기관 데이터 테이블 컴포넌트
- * 
+ *
  * 의료기관 데이터를 반응형으로 표시하는 컴포넌트
  * - 모바일: 카드 레이아웃으로 가독성 향상
  * - 데스크톱: 테이블 레이아웃으로 정보 밀도 최적화
- * 
+ *
  * 개선사항:
  * - 모바일 우선 반응형 디자인
  * - 터치 친화적인 인터페이스
@@ -13,22 +13,42 @@
  * - 페이지네이션 모바일 최적화
  */
 
-"use client"
+"use client";
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Phone, Calendar, Users } from "lucide-react"
-import type { HospitalData } from "@/lib/medical/types"
-import { format } from "date-fns"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  MapPin,
+  Phone,
+  Calendar,
+  Users,
+} from "lucide-react";
+import type { HospitalData } from "@/lib/medical/types";
+import { format } from "date-fns";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface DataTableProps {
-  data: HospitalData[]
-  currentPage: number
-  totalPages: number
-  onPageChange: (page: number) => void
-  isLoading?: boolean
+  data: HospitalData[];
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  isLoading?: boolean;
 }
 
 // 모바일 카드 컴포넌트
@@ -61,7 +81,9 @@ function MobileCard({ hospital }: { hospital: HospitalData }) {
           {/* 주소 - 메인 컬러와 볼드체로 강조 */}
           <div className="flex items-start gap-3">
             <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-            <span className="text-sm text-[#1B59FA] font-bold break-words">{hospital.address}</span>
+            <span className="text-sm text-[#1B59FA] font-bold break-words">
+              {hospital.address}
+            </span>
           </div>
 
           {/* 개원일 */}
@@ -84,16 +106,24 @@ function MobileCard({ hospital }: { hospital: HospitalData }) {
           <div className="flex items-center gap-3">
             <Users className="h-4 w-4 text-gray-500 flex-shrink-0" />
             <span className="text-sm text-gray-700">
-              {hospital.specialistCount ? `전문의 ${hospital.specialistCount}명` : "-"}
+              {hospital.specialistCount
+                ? `전문의 ${hospital.specialistCount}명`
+                : "-"}
             </span>
           </div>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
-export default function DataTable({ data, currentPage, totalPages, onPageChange, isLoading = false }: DataTableProps) {
+export default function DataTable({
+  data,
+  currentPage,
+  totalPages,
+  onPageChange,
+  isLoading = false,
+}: DataTableProps) {
   return (
     <TooltipProvider>
       <div>
@@ -126,12 +156,24 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
               <Table className="table-fixed w-full min-w-[600px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[90px] min-w-[90px] text-center">분류</TableHead>
-                    <TableHead className="w-[140px] min-w-[140px]">병의원명</TableHead>
-                    <TableHead className="w-[280px] min-w-[280px]">주소</TableHead>
-                    <TableHead className="w-[130px] min-w-[130px]">연락처</TableHead>
-                    <TableHead className="w-[110px] min-w-[110px] text-center">개원일</TableHead>
-                    <TableHead className="w-[110px] min-w-[110px] text-center">전문의 수</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] text-center">
+                      분류
+                    </TableHead>
+                    <TableHead className="w-[140px] min-w-[140px]">
+                      병의원명
+                    </TableHead>
+                    <TableHead className="w-[280px] min-w-[280px]">
+                      주소
+                    </TableHead>
+                    <TableHead className="w-[130px] min-w-[130px]">
+                      연락처
+                    </TableHead>
+                    <TableHead className="w-[110px] min-w-[110px] text-center">
+                      개원일
+                    </TableHead>
+                    <TableHead className="w-[110px] min-w-[110px] text-center">
+                      전문의 수
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -140,7 +182,9 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
                       <TableCell colSpan={6} className="h-24 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Loader2 className="h-5 w-5 animate-spin text-[#1B59FA]" />
-                          <span className="text-gray-500">데이터를 불러오는 중...</span>
+                          <span className="text-gray-500">
+                            데이터를 불러오는 중...
+                          </span>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -169,7 +213,10 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
                                 {hospital.name}
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[300px] whitespace-normal">
+                            <TooltipContent
+                              side="top"
+                              className="max-w-[300px] whitespace-normal"
+                            >
                               <p>{hospital.name}</p>
                             </TooltipContent>
                           </Tooltip>
@@ -181,13 +228,19 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
                                 {hospital.address}
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[400px] whitespace-normal">
+                            <TooltipContent
+                              side="top"
+                              className="max-w-[400px] whitespace-normal"
+                            >
                               <p>{hospital.address}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TableCell>
                         <TableCell>
-                          <div className="truncate" title={hospital.phone || "-"}>
+                          <div
+                            className="truncate"
+                            title={hospital.phone || "-"}
+                          >
                             {hospital.phone || "-"}
                           </div>
                         </TableCell>
@@ -230,25 +283,39 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            
-            {/* 페이지 번호 버튼들 - 모바일에서는 더 적게 표시 */}
+
+            {/* 페이지 번호 버튼들 - 항상 5개 페이지 표시 */}
             <div className="flex space-x-2">
               {(() => {
                 const getPageNumbers = () => {
-                  const delta = 2; // 현재 페이지 양쪽으로 보여줄 페이지 수
+                  const maxVisiblePages = 5; // 표시할 최대 페이지 수
                   const range = [];
 
-                  // 시작과 끝 페이지 계산
-                  const start = Math.max(1, currentPage - delta);
-                  const end = Math.min(totalPages, currentPage + delta);
+                  if (totalPages <= maxVisiblePages) {
+                    // 총 페이지가 5개 이하면 모든 페이지 표시
+                    for (let i = 1; i <= totalPages; i++) {
+                      range.push(i);
+                    }
+                  } else {
+                    // 총 페이지가 5개 초과일 때
+                    let start = Math.max(1, currentPage - 2);
+                    const end = Math.min(
+                      totalPages,
+                      start + maxVisiblePages - 1,
+                    );
 
-                  // 페이지 번호 배열 생성
-                  for (let i = start; i <= end; i++) {
-                    range.push(i);
+                    // 끝부분에서 5개를 채우지 못할 때 시작점 조정
+                    if (end - start + 1 < maxVisiblePages) {
+                      start = Math.max(1, end - maxVisiblePages + 1);
+                    }
+
+                    // 페이지 번호 배열 생성
+                    for (let i = start; i <= end; i++) {
+                      range.push(i);
+                    }
                   }
 
-                  // 최대 5개만 표시하도록 제한
-                  return range.slice(0, 5);
+                  return range;
                 };
 
                 return getPageNumbers().map((pageNum) => (
@@ -256,7 +323,9 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
                     key={`page-${pageNum}`}
                     variant={currentPage === pageNum ? "default" : "outline"}
                     className={`min-w-[40px] w-10 h-10 p-0 flex items-center justify-center ${
-                      currentPage === pageNum ? "bg-[#1B59FA] hover:bg-blue-700" : ""
+                      currentPage === pageNum
+                        ? "bg-[#1B59FA] hover:bg-blue-700"
+                        : ""
                     }`}
                     onClick={() => onPageChange(pageNum)}
                   >
@@ -265,7 +334,7 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
                 ));
               })()}
             </div>
-            
+
             <Button
               variant="outline"
               size="icon"
@@ -279,5 +348,5 @@ export default function DataTable({ data, currentPage, totalPages, onPageChange,
         )}
       </div>
     </TooltipProvider>
-  )
-} 
+  );
+}

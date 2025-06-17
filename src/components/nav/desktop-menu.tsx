@@ -42,11 +42,11 @@ export default function DesktopMenu() {
         {navLinks.map((link) => {
           // 인증이 필요한 링크이면서 사용자가 로그인하지 않은 경우 표시하지 않음
           if (link.requireAuth && !user) return null;
-          
+
           return (
             <Link
               key={link.href}
-              href={link.href}
+              href={link.href as any}
               className="text-sm font-medium hover:text-[#1B59FA] transition-colors"
             >
               {link.name}

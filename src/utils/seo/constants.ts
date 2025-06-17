@@ -21,7 +21,7 @@
  */
 
 export const siteConfig = {
-  name: "Next.js + Supabase 보일러플레이트",
+  name: "개원스캐너 - 가장 빠른 병의원 개원정보",
   description:
     "최신 Next.js와 Supabase를 활용한 풀스택 개발을 위한 보일러플레이트",
   url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",

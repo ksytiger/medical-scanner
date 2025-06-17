@@ -10,7 +10,7 @@
 "use client";
 
 import Link from "next/link";
-import { Search, Building2 } from "lucide-react";
+import Image from "next/image";
 import { MobileMenu } from "./mobile-menu";
 import DesktopMenu from "./desktop-menu";
 
@@ -20,11 +20,17 @@ export function Navbar() {
       <div className="container mx-auto flex justify-between items-center py-4 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <MobileMenu />
-          <Link href="/medical-scanner" className="flex items-center gap-2 text-lg font-bold text-[#1B59FA]">
-            <div className="relative">
-              <Building2 className="h-6 w-6" />
-              <Search className="h-3.5 w-3.5 absolute -bottom-1 -right-1 text-[#1B59FA] bg-white rounded-full" />
-            </div>
+          <Link
+            href="/medical-scanner"
+            className="flex items-center gap-1.5 text-xl font-extrabold text-[#4072EB]"
+          >
+            <Image
+              src="/lightning-icon.svg"
+              alt="개원스캐너 로고"
+              width={24}
+              height={24}
+              className="h-6 w-6"
+            />
             <span>개원스캐너</span>
           </Link>
         </div>

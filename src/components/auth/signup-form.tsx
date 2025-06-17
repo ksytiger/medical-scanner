@@ -76,7 +76,7 @@ export function SignupForm({
   // 리다이렉트 처리
   useEffect(() => {
     if (signupState?.shouldRedirect && signupState?.redirectTo) {
-      router.replace(signupState.redirectTo);
+      router.replace(signupState.redirectTo as any);
     }
   }, [signupState, router]);
 

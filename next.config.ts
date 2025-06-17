@@ -29,6 +29,23 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Storybook 파일을 빌드에서 제외
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.stories\.(js|jsx|ts|tsx)$/,
+      loader: "ignore-loader",
+    });
+    return config;
+  },
+  pageExtensions: ["ts", "tsx", "js", "jsx"],
+  // TypeScript 빌드에서 stories 폴더 제외
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  // 빌드 시 stories 파일 제외
+  experimental: {
+    typedRoutes: true,
+  },
 };
 
 export default nextConfig;

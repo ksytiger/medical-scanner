@@ -74,7 +74,7 @@ export function LoginForm({
 
       // 로그인 성공 시 인증 상태 갱신 후 리다이렉트
       refreshUser().then(() => {
-        router.replace(loginState.redirectTo);
+        router.replace(loginState.redirectTo as any);
       });
     }
   }, [loginState, router, refreshUser]);
