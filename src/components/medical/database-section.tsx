@@ -9,14 +9,17 @@
  * - 필터 변경 시 자동 데이터 재조회
  * - 로딩 상태 및 에러 핸들링
  * - 디바운싱으로 검색 성능 최적화
+ * - React Query로 데이터 캐싱 및 서버사이드 페이지네이션
  *
  * @dependencies
  * - @/lib/medical/api: Supabase 데이터 조회 함수들
+ * - @tanstack/react-query: 데이터 캐싱 및 동기화
  */
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import FilterBar from "@/components/medical/filter-bar";
@@ -25,15 +28,10 @@ import { FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import {
   getMedicalFacilities,
   getMedicalFacilitiesWithSubjectFilter,
-  getMedicalFacilitiesCount,
 } from "@/lib/medical/api";
-import type { HospitalData, FilterState } from "@/lib/medical/types";
+import type { FilterState } from "@/lib/medical/types";
 
 export default function DatabaseSection() {
-  const [filteredData, setFilteredData] = useState<HospitalData[]>([]);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<FilterState>({
     dateRange: { from: undefined, to: undefined },
@@ -44,92 +42,59 @@ export default function DatabaseSection() {
   });
 
   const itemsPerPage = 50;
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const currentData = filteredData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
+
+  // 쿼리 키 생성 - 필터와 페이지를 기반으로 캐싱
+  const queryKey = useMemo(
+    () => ["medical-facilities", filters, currentPage, itemsPerPage],
+    [filters, currentPage, itemsPerPage],
   );
 
-  // 데이터 로딩 함수
-  const loadData = useCallback(async (currentFilters: FilterState) => {
-    console.group("🔄 Loading medical facilities data");
-    console.log("Applied filters:", currentFilters);
+  // React Query로 데이터 조회
+  const {
+    data: queryResult,
+    isLoading,
+    error,
+    isFetching,
+  } = useQuery({
+    queryKey,
+    queryFn: async () => {
+      console.group("🔄 React Query: Fetching medical facilities");
+      console.log("Filters:", filters);
+      console.log("Page:", currentPage);
 
-    setIsLoading(true);
-    setError(null);
+      const startTime = Date.now();
 
-    try {
-      // 총 개수 조회 (필터가 없을 때만)
-      const hasAnyFilter =
-        currentFilters.selectedCategory !== null ||
-        currentFilters.keyword?.trim() ||
-        currentFilters.hasContact ||
-        (currentFilters.region?.sido &&
-          currentFilters.region.sido !== "전체") ||
-        currentFilters.dateRange?.from ||
-        currentFilters.dateRange?.to;
+      try {
+        // 카테고리 필터가 있으면 전용 API 사용
+        const hasCategoryFilter = filters.selectedCategory !== null;
+        const result = hasCategoryFilter
+          ? await getMedicalFacilitiesWithSubjectFilter(
+              filters,
+              currentPage,
+              itemsPerPage,
+            )
+          : await getMedicalFacilities(filters, currentPage, itemsPerPage);
 
-      if (!hasAnyFilter) {
-        try {
-          const count = await getMedicalFacilitiesCount();
-          setTotalCount(count);
-          console.log("📊 Total database count:", count);
-        } catch (countError) {
-          console.warn("⚠️ Failed to get total count:", countError);
-        }
+        const elapsed = Date.now() - startTime;
+        console.log(`⏱️ Query completed in ${elapsed}ms`);
+        console.log(`📊 Fetched ${result.data.length} items`);
+
+        return result;
+      } finally {
+        console.groupEnd();
       }
+    },
+    // 캐시 유지 시간 (5분)
+    staleTime: 5 * 60 * 1000,
+    // 백그라운드 재검증 비활성화
+    refetchOnWindowFocus: false,
+  });
 
-      // 카테고리 필터가 있으면 전용 API 사용, 없으면 기존 API 사용
-      const hasCategoryFilter = currentFilters.selectedCategory !== null;
-      console.log(
-        "🏷️ Has category filter:",
-        hasCategoryFilter,
-        currentFilters.selectedCategory,
-      );
-
-      const data = hasCategoryFilter
-        ? await getMedicalFacilitiesWithSubjectFilter(currentFilters)
-        : await getMedicalFacilities(currentFilters);
-
-      console.log(
-        `✅ Successfully loaded ${data.length} facilities using ${hasCategoryFilter ? "category filter" : "standard"} API`,
-      );
-      setFilteredData(data);
-
-      // 필터가 적용된 경우 필터링된 데이터 수를 표시
-      console.log("🔍 Filter analysis:", {
-        hasAnyFilter,
-        dataLength: data.length,
-      });
-      if (hasAnyFilter) {
-        console.log(
-          "📊 Setting totalCount to filtered data length:",
-          data.length,
-        );
-        setTotalCount(data.length);
-      } else {
-        console.log("📊 Using database total count (no filters applied)");
-        // 필터가 없을 때는 이미 위에서 getMedicalFacilitiesCount()로 설정했음
-      }
-
-      setCurrentPage(1); // 새 데이터 로드 시 첫 페이지로 이동
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "데이터 조회에 실패했습니다.";
-      console.error("❌ Failed to load data:", errorMessage);
-      setError(errorMessage);
-      setFilteredData([]);
-    } finally {
-      setIsLoading(false);
-      console.groupEnd();
-    }
-  }, []);
-
-  // 컴포넌트 마운트 시 초기 데이터 로드
+  // 필터 변경 시 첫 페이지로 이동
   useEffect(() => {
-    console.log("🚀 DatabaseSection mounted, loading initial data");
-    loadData(filters);
-  }, [filters, loadData]);
+    console.log("🔍 Filters changed, resetting to page 1");
+    setCurrentPage(1);
+  }, [filters]);
 
   const handleFilterChange = (newFilters: FilterState) => {
     console.group("🔍 Filter Change");
@@ -137,7 +102,6 @@ export default function DatabaseSection() {
     console.log("New filters:", newFilters);
 
     setFilters(newFilters);
-    // loadData는 useEffect에서 filters 변경을 감지하여 자동 실행됩니다
 
     console.groupEnd();
   };
@@ -155,8 +119,14 @@ export default function DatabaseSection() {
   // 에러 재시도 함수
   const handleRetry = () => {
     console.log("🔄 Retrying data load");
-    loadData(filters);
+    // React Query의 refetch 사용
+    window.location.reload();
   };
+
+  // 데이터 추출
+  const currentData = queryResult?.data || [];
+  const totalCount = queryResult?.totalCount || 0;
+  const totalPages = queryResult?.totalPages || 0;
 
   return (
     <section id="database" className="py-12 sm:py-16 bg-gray-50">
@@ -173,7 +143,7 @@ export default function DatabaseSection() {
             <div className="my-6 space-y-4">
               {/* 검색 결과 정보 */}
               <div className="text-sm font-medium text-gray-500">
-                {isLoading ? (
+                {isLoading && !isFetching ? (
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>데이터를 불러오는 중...</span>
@@ -191,12 +161,17 @@ export default function DatabaseSection() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="text-center sm:text-left">
-                    총{" "}
-                    <span className="text-[#1B59FA] font-bold text-base">
-                      {totalCount.toLocaleString()}
+                  <div className="flex items-center gap-2">
+                    {isFetching && (
+                      <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                    )}
+                    <span className="text-center sm:text-left">
+                      총{" "}
+                      <span className="text-[#1B59FA] font-bold text-base">
+                        {totalCount.toLocaleString()}
+                      </span>
+                      건의 의료기관이 검색되었습니다.
                     </span>
-                    건의 의료기관이 검색되었습니다.
                   </div>
                 )}
               </div>
@@ -230,7 +205,11 @@ export default function DatabaseSection() {
                   <p className="text-lg font-semibold">
                     데이터를 불러올 수 없습니다
                   </p>
-                  <p className="text-sm">{error}</p>
+                  <p className="text-sm">
+                    {error instanceof Error
+                      ? error.message
+                      : "오류가 발생했습니다"}
+                  </p>
                 </div>
                 <Button onClick={handleRetry} variant="outline">
                   다시 시도
@@ -242,7 +221,7 @@ export default function DatabaseSection() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
-                isLoading={isLoading}
+                isLoading={isLoading || isFetching}
               />
             )}
           </CardContent>

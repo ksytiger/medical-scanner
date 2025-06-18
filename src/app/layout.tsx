@@ -35,7 +35,9 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { WebsiteJsonLd, OrganizationJsonLd } from "@/components/seo/JsonLd";
 import { siteConfig } from "@/utils/seo/constants";
-import { AuthProvider } from "@/components/auth/auth-provider";
+import AuthProvider from "@/components/auth/auth-provider";
+import { Providers } from "./providers";
+import Navbar from "@/components/nav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -145,12 +147,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang="ko" className="h-full">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-full`}
         suppressHydrationWarning
       >
-        <AuthProvider>{children}</AuthProvider>
+        <Providers>
+          <AuthProvider>
+            <Navbar />
+            <main className="flex-1">{children}</main>
+          </AuthProvider>
+        </Providers>
         <Analytics />
         <WebsiteJsonLd />
         <OrganizationJsonLd />

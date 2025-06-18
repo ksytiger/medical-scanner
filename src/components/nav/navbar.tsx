@@ -21,7 +21,7 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           <MobileMenu />
           <Link
-            href="/medical-scanner"
+            href="/"
             className="flex items-center gap-1.5 text-xl font-extrabold text-[#4072EB]"
           >
             <Image

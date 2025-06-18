@@ -80,7 +80,7 @@ export function MobileMenu() {
             return (
               <Link
                 key={link.href}
-                href={link.href}
+                href={link.href as any}
                 onClick={() => setOpen(false)}
                 className="flex items-center py-3 text-base font-medium hover:text-[#1B59FA] transition-colors"
               >

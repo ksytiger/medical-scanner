@@ -9,3 +9,6 @@ export { Navbar } from "./navbar";
 export { MobileMenu } from "./mobile-menu";
 export { default as DesktopMenu } from "./desktop-menu";
 export { default as UserNav } from "./user-nav";
+
+// Navbar를 default export로 추가
+export { Navbar as default } from "./navbar";

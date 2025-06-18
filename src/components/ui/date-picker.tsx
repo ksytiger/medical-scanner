@@ -8,6 +8,8 @@
  * - 모바일 최적화된 반응형 레이아웃
  * - 참고 이미지 스펙에 맞춘 디자인
  * - 키보드 접근성 지원
+ * - 프리셋 날짜 범위 지원
+ * - 호버 시 예상 범위 표시
  *
  * 디자인 스펙:
  * - 인풋 높이: 48px, 테두리: 1px #D9DCE0
@@ -56,10 +58,10 @@ import {
 
 import { useIsMobile } from "@/hooks/use-mobile";
 
-export interface DateRange {
-  from: Date | undefined;
-  to: Date | undefined;
-}
+export type DateRange = {
+  from?: Date;
+  to?: Date;
+};
 
 interface DatePickerProps {
   mode?: "single" | "range";
@@ -79,6 +81,8 @@ interface CalendarProps {
   onDateSelect: (date: Date) => void;
   onDateRangeSelect?: (range: DateRange) => void;
   isMobile?: boolean;
+  hoverDate?: Date;
+  onHoverDate?: (date: Date | undefined) => void;
 }
 
 // 요일 헤더
@@ -93,6 +97,8 @@ function CalendarView({
   selectedRange,
   onDateSelect,
   isMobile = false,
+  hoverDate,
+  onHoverDate,
 }: CalendarProps) {
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -151,6 +157,25 @@ function CalendarView({
         start: selectedRange.from,
         end: selectedRange.to,
       });
+    }
+    return false;
+  };
+
+  const isDateInHoverRange = (date: Date) => {
+    if (
+      mode === "range" &&
+      selectedRange?.from &&
+      !selectedRange?.to &&
+      hoverDate
+    ) {
+      const start = selectedRange.from;
+      const end = hoverDate;
+
+      if (start.getTime() > end.getTime()) {
+        return isWithinInterval(date, { start: end, end: start });
+      } else {
+        return isWithinInterval(date, { start, end });
+      }
     }
     return false;
   };
@@ -279,6 +304,7 @@ function CalendarView({
           const isTodayDate = isToday(date);
           const isSelected = isDateSelected(date);
           const inRange = isDateInRange(date);
+          const inHoverRange = isDateInHoverRange(date);
           const isRangeStart = isDateRangeStart(date);
           const isRangeEnd = isDateRangeEnd(date);
           const isRangeMiddle = isDateRangeMiddle(date);
@@ -296,19 +322,23 @@ function CalendarView({
             <button
               key={date.toISOString()}
               onClick={() => onDateSelect(date)}
+              onMouseEnter={() => onHoverDate?.(date)}
+              onMouseLeave={() => onHoverDate?.(undefined)}
               className={cn(
                 "text-xs font-normal rounded-md relative transition-colors",
                 "hover:bg-[#EEF3F8] hover:text-[#2B2D33]",
                 // 모바일에서 더 큰 터치 영역
                 isMobile ? "h-10 w-10" : "h-8 w-8",
                 // 기본 상태
-                !isSelected && !inRange && "text-[#2B2D33]",
+                !isSelected && !inRange && !inHoverRange && "text-[#2B2D33]",
                 // 선택된 날짜 (단일 또는 범위의 시작/끝)
                 (isSelected || isRangeStart || isRangeEnd) &&
                   "bg-[#1B59FA] text-white hover:bg-[#1B59FA] hover:text-white",
                 // 범위 중간
                 isRangeMiddle &&
                   "bg-[#E8F1FF] text-[#1B59FA] hover:bg-[#E8F1FF] hover:text-[#1B59FA]",
+                // 호버 범위
+                inHoverRange && !inRange && "bg-[#F0F6FF] text-[#1B59FA]",
                 // 오늘 날짜
                 isTodayDate &&
                   !isSelected &&
@@ -339,10 +369,10 @@ export function DatePicker({
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [secondMonth, setSecondMonth] = useState(addMonths(new Date(), 1));
   const [tempValue, setTempValue] = useState<Date | DateRange | undefined>(
     value,
   );
+  const [hoverDate, setHoverDate] = useState<Date | undefined>();
   const isMobile = useIsMobile();
 
   // 값이 변경되면 임시 값도 업데이트
@@ -408,24 +438,18 @@ export function DatePicker({
 
   const handleCancel = () => {
     setTempValue(value);
+    setHoverDate(undefined);
     setOpen(false);
   };
 
   const handleApply = () => {
     onChange?.(tempValue);
+    setHoverDate(undefined);
     setOpen(false);
   };
 
   const handleFirstMonthChange = (date: Date) => {
     setCurrentMonth(date);
-    if (mode === "range") {
-      setSecondMonth(addMonths(date, 1));
-    }
-  };
-
-  const handleSecondMonthChange = (date: Date) => {
-    setSecondMonth(date);
-    setCurrentMonth(subMonths(date, 1));
   };
 
   return (
@@ -451,10 +475,8 @@ export function DatePicker({
       <PopoverContent
         className={cn(
           "p-0 shadow-lg border-[#D9DCE0]",
-          // 모바일에서는 화면 너비에 맞게 조정
-          isMobile && mode === "range"
-            ? "w-[calc(100vw-2rem)] max-w-[360px]"
-            : "w-auto",
+          // 모든 경우에 단일 캘린더 너비로 설정
+          "w-auto",
         )}
         align={isMobile ? "center" : "start"}
         sideOffset={4}
@@ -462,18 +484,8 @@ export function DatePicker({
         side={isMobile ? "bottom" : "bottom"}
       >
         <div className="bg-white rounded-lg">
-          {/* 달력 영역 */}
-          <div
-            className={cn(
-              "flex",
-              // 모바일에서 range 모드일 때는 세로 배치, PC에서는 가로 배치
-              mode === "range" && isMobile
-                ? "flex-col"
-                : mode === "range"
-                  ? "gap-6"
-                  : "",
-            )}
-          >
+          {/* 달력 영역 - 항상 단일 캘린더만 표시 */}
+          <div className="flex">
             <CalendarView
               currentMonth={currentMonth}
               onMonthChange={handleFirstMonthChange}
@@ -484,22 +496,9 @@ export function DatePicker({
               }
               onDateSelect={(date) => handleDateSelect(date)}
               isMobile={isMobile}
+              hoverDate={hoverDate}
+              onHoverDate={setHoverDate}
             />
-            {mode === "range" && (
-              <>
-                {/* 모바일에서는 구분선 추가 */}
-                {isMobile && <div className="mx-4 border-t border-[#F0F1F3]" />}
-                <CalendarView
-                  currentMonth={secondMonth}
-                  onMonthChange={handleSecondMonthChange}
-                  mode={mode}
-                  selectedDate={undefined}
-                  selectedRange={tempValue as DateRange}
-                  onDateSelect={(date) => handleDateSelect(date)}
-                  isMobile={isMobile}
-                />
-              </>
-            )}
           </div>
 
           {/* 하단 버튼 */}

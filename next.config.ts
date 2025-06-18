@@ -43,9 +43,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   // 빌드 시 stories 파일 제외
-  experimental: {
-    typedRoutes: true,
-  },
+  // experimental: {
+  //   typedRoutes: true, // Turbopack에서 아직 지원되지 않음
+  // },
 };
 
 export default nextConfig;

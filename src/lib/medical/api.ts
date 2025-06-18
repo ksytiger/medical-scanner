@@ -101,52 +101,60 @@ function transformMedicalFacility(facility: MedicalFacility): HospitalData {
   };
 }
 
+// 페이지네이션 응답 타입 추가
+export interface PaginatedResponse<T> {
+  data: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 /**
- * 의료기관 목록을 조회합니다 (필터링 지원) - 페이지네이션으로 모든 데이터 조회
+ * 의료기관 목록을 조회합니다 (서버사이드 페이지네이션)
  */
 export async function getMedicalFacilities(
   filters?: Partial<FilterState>,
-): Promise<HospitalData[]> {
-  console.group("🏥 Medical Facilities API Call");
+  page: number = 1,
+  pageSize: number = 50,
+): Promise<PaginatedResponse<HospitalData>> {
+  console.group("🏥 Medical Facilities API Call with Pagination");
   console.log("Filters:", filters);
+  console.log("Page:", page, "PageSize:", pageSize);
+
+  const startTime = Date.now(); // 성능 측정 시작
 
   try {
     const supabase = await createServerSupabaseClient();
 
-    // 페이지네이션으로 모든 데이터 가져오기
-    const pageSize = 1000;
-    const allData: any[] = [];
-    let currentPage = 0;
-    let hasMore = true;
+    // 기본 쿼리 구성
+    let countQuery = supabase
+      .from("medical_facilities")
+      .select("*", { count: "exact", head: true });
 
-    while (hasMore) {
-      console.log(
-        `📄 Fetching page ${currentPage + 1} (offset: ${currentPage * pageSize})`,
-      );
+    let dataQuery = supabase
+      .from("medical_facilities")
+      .select(
+        `
+        id,
+        business_name,
+        business_type,
+        license_date,
+        location_phone,
+        medical_institution_type,
+        medical_personnel_count,
+        inpatient_room_count,
+        bed_count,
+        total_area,
+        medical_subject_names,
+        road_full_address,
+        road_postal_code
+      `,
+      )
+      .order("license_date", { ascending: false });
 
-      // 기본 쿼리: medical_facilities 테이블에서 직접 조회 (주소 정보 포함)
-      let query = supabase
-        .from("medical_facilities")
-        .select(
-          `
-          id,
-          business_name,
-          business_type,
-          license_date,
-          location_phone,
-          medical_institution_type,
-          medical_personnel_count,
-          inpatient_room_count,
-          bed_count,
-          total_area,
-          medical_subject_names,
-          road_full_address,
-          road_postal_code
-        `,
-        )
-        .order("license_date", { ascending: false })
-        .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
-
+    // 필터 적용 함수
+    const applyFilters = (query: any) => {
       // 날짜 범위 필터
       if (filters?.dateRange?.from && filters?.dateRange?.to) {
         console.log("📅 Date range filter:", filters.dateRange);
@@ -242,36 +250,67 @@ export async function getMedicalFacilities(
         query = query.ilike("business_name", `%${filters.keyword.trim()}%`);
       }
 
-      const { data, error } = await query;
+      return query;
+    };
 
-      if (error) {
-        console.error("❌ Medical facilities query error:", error);
-        throw new Error(`의료기관 조회 실패: ${error.message}`);
-      }
+    // 필터 적용
+    countQuery = applyFilters(countQuery);
+    dataQuery = applyFilters(dataQuery);
 
-      if (!data || data.length === 0) {
-        console.log(`📄 Page ${currentPage + 1}: No more data found`);
-        hasMore = false;
-        break;
-      }
+    // 총 개수 조회 (캐시 고려)
+    const countStartTime = Date.now();
+    const { count, error: countError } = await countQuery;
+    console.log(`⏱️ Count query took: ${Date.now() - countStartTime}ms`);
 
-      console.log(`📄 Page ${currentPage + 1}: Found ${data.length} records`);
-      allData.push(...data);
-
-      // 페이지 크기보다 적게 반환되면 마지막 페이지
-      if (data.length < pageSize) {
-        hasMore = false;
-      } else {
-        currentPage++;
-      }
+    if (countError) {
+      console.error("❌ Count query error:", countError);
+      throw new Error(`개수 조회 실패: ${countError.message}`);
     }
 
-    console.log(
-      `✅ Successfully fetched ${allData.length} medical facilities across ${currentPage + 1} pages`,
-    );
+    const totalCount = count || 0;
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    // 페이지 범위 검증
+    if (page < 1 || page > totalPages) {
+      console.log(`📄 Invalid page ${page}, returning empty result`);
+      return {
+        data: [],
+        totalCount,
+        page,
+        pageSize,
+        totalPages,
+      };
+    }
+
+    // 페이지네이션 적용
+    const offset = (page - 1) * pageSize;
+    dataQuery = dataQuery.range(offset, offset + pageSize - 1);
+
+    // 데이터 조회
+    const dataStartTime = Date.now();
+    const { data, error } = await dataQuery;
+    console.log(`⏱️ Data query took: ${Date.now() - dataStartTime}ms`);
+
+    if (error) {
+      console.error("❌ Medical facilities query error:", error);
+      throw new Error(`의료기관 조회 실패: ${error.message}`);
+    }
+
+    if (!data) {
+      console.log("📄 No data found");
+      return {
+        data: [],
+        totalCount: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      };
+    }
+
+    console.log(`✅ Successfully fetched ${data.length} medical facilities`);
 
     // 데이터 변환
-    const transformedData = allData.map((facility) =>
+    const transformedData = data.map((facility) =>
       transformMedicalFacility({
         id: facility.id,
         name: facility.business_name,
@@ -290,8 +329,17 @@ export async function getMedicalFacilities(
       }),
     );
 
+    const totalTime = Date.now() - startTime;
+    console.log(`⏱️ Total API call took: ${totalTime}ms`);
     console.log("🔄 Data transformation completed");
-    return transformedData;
+
+    return {
+      data: transformedData,
+      totalCount,
+      page,
+      pageSize,
+      totalPages,
+    };
   } catch (error) {
     console.error("❌ Failed to fetch medical facilities:", error);
     throw error;
@@ -416,201 +464,23 @@ export async function getMedicalSubjects(): Promise<string[]> {
 }
 
 /**
- * 의료기관과 진료과목 관계를 기반으로 진료과목 필터링된 의료기관을 조회합니다 - 페이지네이션으로 모든 데이터 조회
+ * 의료기관과 진료과목 관계를 기반으로 진료과목 필터링된 의료기관을 조회합니다 - 서버사이드 페이지네이션
  */
 export async function getMedicalFacilitiesWithSubjectFilter(
   filters?: Partial<FilterState>,
-): Promise<HospitalData[]> {
+  page: number = 1,
+  pageSize: number = 50,
+): Promise<PaginatedResponse<HospitalData>> {
   console.group("🏥 Medical Facilities with Subject Filter API Call");
   console.log("Filters:", filters);
+  console.log("Page:", page, "PageSize:", pageSize);
 
-  try {
-    const supabase = await createServerSupabaseClient();
+  // 진료과목 필터가 있는 경우에는 동일한 getMedicalFacilities 사용
+  // (이미 medical_subject_names 필드에서 검색하도록 구현되어 있음)
+  const result = await getMedicalFacilities(filters, page, pageSize);
 
-    // 페이지네이션으로 모든 데이터 가져오기
-    const pageSize = 1000;
-    const allData: any[] = [];
-    let currentPage = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      console.log(
-        `📄 Fetching page ${currentPage + 1} (offset: ${currentPage * pageSize})`,
-      );
-
-      let query = supabase
-        .from("medical_facilities")
-        .select(
-          `
-          id,
-          business_name,
-          business_type,
-          license_date,
-          location_phone,
-          medical_institution_type,
-          medical_personnel_count,
-          inpatient_room_count,
-          bed_count,
-          total_area,
-          medical_subject_names,
-          road_full_address,
-          road_postal_code
-        `,
-        )
-        .order("license_date", { ascending: false })
-        .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
-
-      // 날짜 범위 필터
-      if (filters?.dateRange?.from && filters?.dateRange?.to) {
-        console.log("📅 Date range filter:", filters.dateRange);
-        query = query
-          .gte(
-            "license_date",
-            filters.dateRange.from.toISOString().split("T")[0],
-          )
-          .lte(
-            "license_date",
-            filters.dateRange.to.toISOString().split("T")[0],
-          );
-      }
-
-      // 연락처 유무 필터
-      if (filters?.hasContact) {
-        console.log("📞 Contact filter: only with phone numbers");
-        query = query.not("location_phone", "is", null);
-      }
-
-      // 단일 카테고리 필터
-      if (filters?.selectedCategory) {
-        console.log("🏷️ Category filter:", filters.selectedCategory);
-
-        const category = filters.selectedCategory;
-
-        // 기본 분류 (의원, 병원, 약국)
-        if (category === "병원") {
-          query = query.in("business_type", [
-            "병원",
-            "한방병원",
-            "요양병원(일반요양병원)",
-            "치과병원",
-            "정신병원",
-            "종합병원",
-          ]);
-        } else if (category === "의원") {
-          query = query.in("business_type", [
-            "의원",
-            "치과의원",
-            "한의원",
-            "보건지소",
-            "보건진료소",
-            "보건소",
-            "조산원",
-          ]);
-        } else if (category === "약국") {
-          query = query.ilike("business_name", "%약국%");
-        }
-        // 전문 진료과 및 세부 분류
-        else if (category === "치과의원") {
-          query = query.eq("business_type", "치과의원");
-        } else if (category === "한의원") {
-          query = query.eq("business_type", "한의원");
-        } else if (category === "종합병원") {
-          query = query.eq("business_type", "종합병원");
-        } else if (category === "요양병원") {
-          query = query.eq("business_type", "요양병원(일반요양병원)");
-        } else if (category === "한방병원") {
-          query = query.eq("business_type", "한방병원");
-        } else if (category === "치과병원") {
-          query = query.eq("business_type", "치과병원");
-        } else if (category === "정신병원") {
-          query = query.eq("business_type", "정신병원");
-        } else if (category === "보건기관") {
-          query = query.in("business_type", [
-            "보건소",
-            "보건지소",
-            "보건진료소",
-          ]);
-        } else if (category === "기타의원") {
-          query = query.eq("business_type", "조산원");
-        }
-        // 전문 진료과는 medical_subject_names에서 검색
-        else {
-          query = query.ilike("medical_subject_names", `%${category}%`);
-        }
-      }
-
-      // 지역 필터
-      if (filters?.region?.sido && filters.region.sido !== "전체") {
-        console.log("🌍 Region filter:", filters.region);
-        query = query.ilike("road_full_address", `%${filters.region.sido}%`);
-
-        if (filters.region.gugun && filters.region.gugun !== "전체") {
-          query = query.ilike("road_full_address", `%${filters.region.gugun}%`);
-        }
-      }
-
-      // 키워드 검색
-      if (filters?.keyword && filters.keyword.trim()) {
-        console.log("🔍 Keyword filter:", filters.keyword);
-        query = query.ilike("business_name", `%${filters.keyword.trim()}%`);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("❌ Medical facilities query error:", error);
-        throw new Error(`의료기관 조회 실패: ${error.message}`);
-      }
-
-      if (!data || data.length === 0) {
-        console.log(`📄 Page ${currentPage + 1}: No more data found`);
-        hasMore = false;
-        break;
-      }
-
-      console.log(`📄 Page ${currentPage + 1}: Found ${data.length} records`);
-      allData.push(...data);
-
-      // 페이지 크기보다 적게 반환되면 마지막 페이지
-      if (data.length < pageSize) {
-        hasMore = false;
-      } else {
-        currentPage++;
-      }
-    }
-
-    console.log(
-      `✅ Successfully fetched ${allData.length} medical facilities across ${currentPage + 1} pages`,
-    );
-
-    // 데이터 변환
-    const transformedData = allData.map((facility) =>
-      transformMedicalFacility({
-        id: facility.id,
-        name: facility.business_name,
-        service_type: facility.business_type,
-        license_date: facility.license_date,
-        phone: facility.location_phone,
-        healthcare_type: facility.medical_institution_type,
-        num_doctors: facility.medical_personnel_count,
-        num_rooms: facility.inpatient_room_count,
-        num_beds: facility.bed_count,
-        total_area: facility.total_area,
-        address_id: 0, // 사용하지 않음
-        subject_count: 0, // 사용하지 않음
-        road_address: facility.road_full_address,
-        road_postcode: facility.road_postal_code,
-      }),
-    );
-
-    console.log("🔄 Data transformation completed");
-    return transformedData;
-  } catch (error) {
-    console.error("❌ Failed to fetch medical facilities:", error);
-    throw error;
-  } finally {
-    console.groupEnd();
-  }
+  console.groupEnd();
+  return result;
 }
 
 /**
