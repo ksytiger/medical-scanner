@@ -54,61 +54,78 @@ interface DataTableProps {
 // 모바일 카드 컴포넌트
 function MobileCard({ hospital }: { hospital: HospitalData }) {
   return (
-    <Card className="mb-4">
+    <Card className="mb-2 border border-gray-200 bg-white shadow-sm hover:shadow-lg hover:border-[#1B59FA]/30 transition-all duration-200 overflow-hidden">
       <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
+        {/* 상단 헤더 영역 */}
+        <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg text-gray-900 mb-1 break-words">
+            <h3 className="font-semibold text-[17px] text-gray-900 leading-tight">
               {hospital.name}
             </h3>
-            <span
-              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                hospital.category === "의원"
-                  ? "bg-blue-100 text-[#1B59FA]"
-                  : hospital.category === "병원"
-                    ? "bg-green-100 text-green-700"
-                    : hospital.category === "약국"
-                      ? "bg-orange-100 text-orange-700"
-                      : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {hospital.category}
-            </span>
           </div>
+          <span
+            className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium flex-shrink-0 ${
+              hospital.category === "의원"
+                ? "bg-blue-50 text-blue-700"
+                : hospital.category === "병원"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : hospital.category === "약국"
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-gray-50 text-gray-700"
+            }`}
+          >
+            {hospital.category}
+          </span>
         </div>
 
-        <div className="space-y-3">
-          {/* 주소 - 메인 컬러와 볼드체로 강조 */}
-          <div className="flex items-start gap-3">
-            <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-            <span className="text-sm text-[#1B59FA] font-bold break-words">
-              {hospital.address}
-            </span>
+        {/* 정보 영역 - 세로 배치 */}
+        <div className="space-y-2.5">
+          {/* 주소 - 전체 표시, 최소 높이 설정 */}
+          <div className="bg-gray-50 rounded-lg p-3 min-h-[60px] flex items-center">
+            <div className="flex items-start gap-2">
+              <MapPin className="h-4 w-4 text-[#1B59FA] mt-0.5 flex-shrink-0" />
+              <span className="text-[14px] text-gray-700 leading-relaxed">
+                {hospital.address}
+              </span>
+            </div>
           </div>
 
           {/* 개원일 */}
-          <div className="flex items-center gap-3">
-            <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
-            <span className="text-sm text-gray-700">
-              개원일: {format(new Date(hospital.openDate), "yyyy-MM-dd")}
+          <div className="flex items-center gap-3 py-1">
+            <Calendar className="h-4 w-4 text-[#1B59FA] flex-shrink-0" />
+            <span className="text-[13px] text-gray-500 font-medium min-w-[50px]">
+              개원일
+            </span>
+            <span className="text-[14px] text-gray-800 font-medium">
+              {format(new Date(hospital.openDate), "yyyy년 MM월 dd일")}
             </span>
           </div>
 
-          {/* 연락처 - 이모지는 항상 표시, 데이터 없으면 "-" 표시 */}
-          <div className="flex items-center gap-3">
-            <Phone className="h-4 w-4 text-gray-500 flex-shrink-0" />
-            <span className="text-sm text-gray-700">
-              {hospital.phone || "-"}
+          {/* 연락처 */}
+          <div className="flex items-center gap-3 py-1">
+            <Phone className="h-4 w-4 text-[#1B59FA] flex-shrink-0" />
+            <span className="text-[13px] text-gray-500 font-medium min-w-[50px]">
+              연락처
+            </span>
+            <span
+              className={`text-[14px] ${hospital.phone ? "text-gray-800" : "text-gray-400"}`}
+            >
+              {hospital.phone || "정보 없음"}
             </span>
           </div>
 
-          {/* 전문의 수 - 이모지는 항상 표시, 데이터 없으면 "-" 표시 */}
-          <div className="flex items-center gap-3">
-            <Users className="h-4 w-4 text-gray-500 flex-shrink-0" />
-            <span className="text-sm text-gray-700">
+          {/* 전문의 */}
+          <div className="flex items-center gap-3 py-1">
+            <Users className="h-4 w-4 text-[#1B59FA] flex-shrink-0" />
+            <span className="text-[13px] text-gray-500 font-medium min-w-[50px]">
+              전문의
+            </span>
+            <span
+              className={`text-[14px] ${hospital.specialistCount ? "text-gray-800" : "text-gray-400"}`}
+            >
               {hospital.specialistCount
-                ? `전문의 ${hospital.specialistCount}명`
-                : "-"}
+                ? `${hospital.specialistCount}명`
+                : "정보 없음"}
             </span>
           </div>
         </div>
@@ -137,7 +154,7 @@ export default function DataTable({
               </div>
             </div>
           ) : data.length > 0 ? (
-            <div className="space-y-0">
+            <div>
               {data.map((hospital) => (
                 <MobileCard key={hospital.id} hospital={hospital} />
               ))}

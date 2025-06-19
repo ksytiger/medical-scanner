@@ -41,7 +41,20 @@ export default function DatabaseSection() {
     keyword: "",
   });
 
-  const itemsPerPage = 50;
+  // 모바일과 데스크톱에서 다른 페이지 사이즈 적용
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // lg breakpoint
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const itemsPerPage = isMobile ? 5 : 50;
 
   // 쿼리 키 생성 - 필터와 페이지를 기반으로 캐싱
   const queryKey = useMemo(
