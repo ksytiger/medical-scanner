@@ -75,6 +75,40 @@ FACILITY_TYPE_MAPPING = {
     "약국": "pharmacy"
 }
 
+# 업태구분별 고정 진료과목 매핑 (특수 분류)
+FIXED_MEDICAL_SUBJECTS = {
+    "치과의원": "치과",
+    "치과병원": "치과", 
+    "한의원": "한의학",
+    "한방병원": "한의학",
+    "요양병원(일반요양병원)": "재활의학과",
+    "정신병원": "정신건강의학과",
+    "보건소": "예방의학과",
+    "보건지소": "가정의학과", 
+    "보건진료소": "가정의학과",
+    "조산원": "산부인과",
+    "약국": "",  # 약국은 진료과목 없음
+}
+
+# 사업장명에서 추출할 진료과목 키워드 (우선순위 순)
+MEDICAL_SUBJECT_KEYWORDS = [
+    # 내과 계열
+    "내분비내과", "소화기내과", "순환기내과", "호흡기내과", "신장내과", "혈액내과", "감염내과", "류마티스내과", "내과",
+    
+    # 외과 계열  
+    "성형외과", "정형외과", "신경외과", "흉부외과", "심장외과", "간담췌외과", "대장항문외과", "유방외과", "외과",
+    
+    # 전문과
+    "산부인과", "소아청소년과", "소아과", "청소년과", "정신건강의학과", "정신과", "가정의학과", "응급의학과",
+    "재활의학과", "영상의학과", "병리과", "진단검사의학과", "마취통증의학과", "예방의학과", "직업환경의학과",
+    
+    # 감각기관
+    "안과", "이비인후과", "피부과", "비뇨의학과", "비뇨기과",
+    
+    # 기타
+    "신경과", "결핵과", "핵의학과", "방사선종양학과"
+]
+
 # ============================================================
 # 날짜 처리 함수들
 # ============================================================
@@ -264,19 +298,47 @@ def filter_by_opening_date(data: List, start_date: str, end_date: str, facility_
     
     return filtered_facilities
 
+def extract_medical_subjects(business_name: str, business_type: str) -> str:
+    """사업장명과 업태구분으로부터 진료과목 추출"""
+    # 1. 고정 진료과목 먼저 확인 (치과의원, 한의원 등)
+    if business_type in FIXED_MEDICAL_SUBJECTS:
+        return FIXED_MEDICAL_SUBJECTS[business_type]
+    
+    # 2. 사업장명에서 진료과목 키워드 추출
+    if business_name:
+        found_subjects = []
+        for keyword in MEDICAL_SUBJECT_KEYWORDS:
+            if keyword in business_name:
+                found_subjects.append(keyword)
+        
+        # 발견된 진료과목들을 콤마로 연결
+        if found_subjects:
+            return ",".join(found_subjects)
+    
+    # 3. 아무것도 찾지 못한 경우 빈 문자열
+    return ""
+
 def extract_facility_info(row) -> Dict:
     """XML 행에서 의료기관 정보 추출"""
     def get_text(element_name):
         element = row.find(element_name)
         return element.text.strip() if element is not None and element.text else None
     
+    # 기본 정보 추출
+    business_name = get_text('bplcNm')
+    business_type = get_text('uptaeNm')
+    
+    # 진료과목 추출
+    medical_subjects = extract_medical_subjects(business_name, business_type)
+    
     return {
-        "사업장명": get_text('bplcNm'),
+        "사업장명": business_name,
         "개원일": get_text('apvPermYmd'),
         "주소": get_text('rdnWhlAddr'),
-        "업태구분": get_text('uptaeNm'),
+        "업태구분": business_type,
         "전화번호": get_text('siteTel'),
-        "관리번호": get_text('mgtNo')
+        "관리번호": get_text('mgtNo'),
+        "진료과목": medical_subjects
     }
 
 # ============================================================
@@ -386,6 +448,7 @@ def print_integrated_report(facilities_by_type: Dict[str, List[Dict]],
             facility['시설유형'],                 # 시설유형
             facility['업태구분'] or '-',          # 구분
             facility['사업장명'] or '-',          # 사업자명
+            facility['진료과목'] or '-',          # 진료과목
             address,                             # 주소
             phone,                              # 전화번호
             opening_date or '-',                # 인허가일
@@ -393,7 +456,7 @@ def print_integrated_report(facilities_by_type: Dict[str, List[Dict]],
         ])
     
     # 테이블 헤더
-    headers = ["시설유형", "구분", "사업자명", "주소", "전화번호", "인허가일", "관리번호"]
+    headers = ["시설유형", "구분", "사업자명", "진료과목", "주소", "전화번호", "인허가일", "관리번호"]
     
     # 구글 스프레드시트용 CSV 형식
     print("\n📊 구글 스프레드시트용 복사 형식")
@@ -433,6 +496,7 @@ def print_integrated_report(facilities_by_type: Dict[str, List[Dict]],
                 
                 print(f"{i}. {facility['사업장명']}")
                 print(f"   📋 {facility['업태구분'] or '분류없음'}")
+                print(f"   🩺 {facility['진료과목'] or '진료과목없음'}")
                 print(f"   📅 {opening_date}")
                 print(f"   📍 {facility['주소'] or '주소없음'}")
                 print(f"   📞 {facility['전화번호'] or '전화번호없음'}")
@@ -592,6 +656,7 @@ def prepare_facility_data_for_supabase(facility: Dict, type_id: str) -> Dict:
         except ValueError:
             print(f"⚠️ 잘못된 날짜 형식: {facility['개원일']}")
     
+    # medical_facilities 테이블에 맞는 필드명으로 매핑
     return {
         'license_no': facility.get('관리번호', ''),
         'type_id': type_id,
@@ -599,7 +664,10 @@ def prepare_facility_data_for_supabase(facility: Dict, type_id: str) -> Dict:
         'address_road': facility.get('주소', ''),
         'tel': facility.get('전화번호', ''),
         'open_date': open_date,
-        'status': 'operating'
+        'status': 'operating',
+        # 추가: 진료과목 정보 (medical_facilities 테이블의 medical_subject_names 필드용)
+        'medical_subjects': facility.get('진료과목', ''),
+        'business_type': facility.get('업태구분', '')
     }
 
 def upload_facilities_to_supabase(facilities_by_type: Dict[str, List[Dict]]) -> bool:
