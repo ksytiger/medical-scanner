@@ -644,39 +644,54 @@ def get_facility_type_id(supabase: Client, facility_type: str) -> Optional[str]:
         print(f"❌ 시설 유형 ID 조회 실패: {e}")
         return None
 
-def prepare_facility_data_for_supabase(facility: Dict, type_id: str) -> Dict:
-    """의료기관 데이터를 Supabase 형식으로 변환"""
+def prepare_facility_data_for_medical_facilities(facility: Dict, facility_type: str) -> Dict:
+    """의료기관 데이터를 medical_facilities 테이블 형식으로 변환"""
     # 개원일 처리
-    open_date = None
+    license_date = None
     if facility.get('개원일'):
         date_str = facility['개원일'].replace('-', '')
         try:
             parsed_date = datetime.strptime(date_str, '%Y%m%d')
-            open_date = parsed_date.date().isoformat()
+            license_date = parsed_date.date().isoformat()
         except ValueError:
             print(f"⚠️ 잘못된 날짜 형식: {facility['개원일']}")
     
+    # 시설 유형별 service_name과 service_id 매핑
+    service_mapping = {
+        '병원': {'service_name': '병원', 'service_id': '01_01_01_P'},
+        '의원': {'service_name': '의원', 'service_id': '01_01_02_P'},
+        '약국': {'service_name': '약국', 'service_id': '01_02_01_P'}
+    }
+    
+    service_info = service_mapping.get(facility_type, {'service_name': facility_type, 'service_id': 'unknown'})
+    
     # medical_facilities 테이블에 맞는 필드명으로 매핑
     return {
-        'license_no': facility.get('관리번호', ''),
-        'type_id': type_id,
-        'name': facility.get('사업장명', ''),
-        'address_road': facility.get('주소', ''),
-        'tel': facility.get('전화번호', ''),
-        'open_date': open_date,
-        'status': 'operating',
-        # 추가: 진료과목 정보 (medical_facilities 테이블의 medical_subject_names 필드용)
-        'medical_subjects': facility.get('진료과목', ''),
-        'business_type': facility.get('업태구분', '')
+        'service_name': service_info['service_name'],
+        'service_id': service_info['service_id'],
+        'management_number': facility.get('관리번호', ''),
+        'business_name': facility.get('사업장명', ''),
+        'business_type': facility.get('업태구분', ''),
+        'license_date': license_date,
+        'road_full_address': facility.get('주소', ''),
+        'location_phone': facility.get('전화번호', ''),
+        'medical_subject_names': facility.get('진료과목', ''),
+        'business_status': '영업/정상',
+        'business_status_code': '1',
+        'detailed_business_status': '영업중',
+        'detailed_business_status_code': '13',
+        'data_update_type': 'I',
+        'data_update_date': datetime.now().isoformat(),
+        'last_modified_time': datetime.now().isoformat()
     }
 
-def upload_facilities_to_supabase(facilities_by_type: Dict[str, List[Dict]]) -> bool:
-    """의료기관 데이터를 Supabase에 업로드"""
+def upload_facilities_to_medical_facilities(facilities_by_type: Dict[str, List[Dict]]) -> bool:
+    """의료기관 데이터를 medical_facilities 테이블에 업로드"""
     supabase = create_supabase_client()
     if not supabase:
         return False
     
-    print("\n🚀 Supabase에 데이터 업로드 시작...")
+    print("\n🚀 medical_facilities 테이블에 데이터 업로드 시작...")
     
     total_uploaded = 0
     total_errors = 0
@@ -687,13 +702,6 @@ def upload_facilities_to_supabase(facilities_by_type: Dict[str, List[Dict]]) -> 
             
         print(f"\n📤 {facility_type} 데이터 업로드 중... ({len(facilities)}개)")
         
-        # 시설 유형 ID 조회
-        type_id = get_facility_type_id(supabase, facility_type)
-        if not type_id:
-            print(f"❌ {facility_type} 시설 유형 ID를 찾을 수 없습니다.")
-            total_errors += len(facilities)
-            continue
-        
         # 배치 업로드 준비
         batch_data = []
         for facility in facilities:
@@ -702,7 +710,7 @@ def upload_facilities_to_supabase(facilities_by_type: Dict[str, List[Dict]]) -> 
                 total_errors += 1
                 continue
             
-            facility_data = prepare_facility_data_for_supabase(facility, type_id)
+            facility_data = prepare_facility_data_for_medical_facilities(facility, facility_type)
             batch_data.append(facility_data)
         
         if not batch_data:
@@ -712,9 +720,9 @@ def upload_facilities_to_supabase(facilities_by_type: Dict[str, List[Dict]]) -> 
         # 배치 업로드 실행
         try:
             # upsert로 중복 데이터 처리 (관리번호 기준)
-            result = supabase.table('facilities').upsert(
+            result = supabase.table('medical_facilities').upsert(
                 batch_data, 
-                on_conflict='license_no'
+                on_conflict='management_number'
             ).execute()
             
             uploaded_count = len(result.data) if result.data else 0
@@ -723,6 +731,7 @@ def upload_facilities_to_supabase(facilities_by_type: Dict[str, List[Dict]]) -> 
             
         except Exception as e:
             print(f"❌ {facility_type} 업로드 실패: {e}")
+            print(f"   오류 상세: {str(e)}")
             total_errors += len(batch_data)
     
     # 결과 요약
@@ -732,7 +741,7 @@ def upload_facilities_to_supabase(facilities_by_type: Dict[str, List[Dict]]) -> 
     print(f"   📈 총 처리: {total_uploaded + total_errors}개")
     
     if total_uploaded > 0:
-        print(f"\n🎉 Supabase 업로드가 완료되었습니다!")
+        print(f"\n🎉 medical_facilities 테이블 업로드가 완료되었습니다!")
         print(f"   데이터베이스에서 확인하세요: {SUPABASE_URL}")
         return True
     else:
@@ -831,7 +840,7 @@ Supabase 업로드 사용법:
     
     # Supabase 업로드
     if args.upload_to_supabase:
-        success = upload_facilities_to_supabase(facilities_by_type)
+        success = upload_facilities_to_medical_facilities(facilities_by_type)
         return 0 if success else 1
 
 if __name__ == "__main__":
