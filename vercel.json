@@ -9,5 +9,8 @@
     "src/app/api/cron/medical-data/route.ts": {
       "maxDuration": 60
     }
+  },
+  "env": {
+    "TZ": "Asia/Seoul"
   }
 }
