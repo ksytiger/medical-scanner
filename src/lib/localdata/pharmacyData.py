@@ -29,7 +29,7 @@ from tabulate import tabulate
 
 # ===== 하드코딩 설정 (명령행 인자 없이 실행할 때 사용) =====
 HARDCODED_START_DATE = "20250601"  # 시작 날짜 (YYYYMMDD) - 여기서 수정하세요!
-HARDCODED_END_DATE = "20250619"    # 종료 날짜 (YYYYMMDD) - 여기서 수정하세요!
+HARDCODED_END_DATE = "20250630"    # 종료 날짜 (YYYYMMDD) - 여기서 수정하세요!
 ENABLE_HARDCODED_MODE = True       # True: 하드코딩 모드 활성화, False: 명령행 인자 필수
 
 # API 설정

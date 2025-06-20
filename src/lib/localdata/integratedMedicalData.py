@@ -9,6 +9,7 @@ Integrated Medical Facility Data Extractor
   python integratedMedicalData.py --week 2025-06-15          # 해당 주 월요일부터 5일간
   python integratedMedicalData.py --current-week             # 현재 주
   python integratedMedicalData.py --start-date 2025-06-08 --days 5  # 직접 날짜 지정
+  python integratedMedicalData.py --upload-to-supabase       # Supabase에 업로드
   python integratedMedicalData.py --help                     # 도움말
 
 작성자: AI Assistant
@@ -19,9 +20,20 @@ import requests
 import xml.etree.ElementTree as ET
 import argparse
 import json
+import os
 from datetime import datetime, timedelta
 from typing import List, Dict, Tuple, Optional
 from tabulate import tabulate
+
+# Supabase 관련 import (선택사항)
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+    print("⚠️ supabase-py 라이브러리가 설치되어 있지 않습니다.")
+    print("   Supabase 업로드 기능을 사용하려면 다음 명령어를 실행하세요:")
+    print("   pip install supabase")
 
 # ============================================================
 # 설정 및 상수
@@ -29,8 +41,12 @@ from tabulate import tabulate
 
 # ===== 하드코딩 설정 (명령행 인자 없이 실행할 때 사용) =====
 HARDCODED_START_DATE = "20250601"  # 시작 날짜 (YYYYMMDD) - 여기서 수정하세요!
-HARDCODED_END_DATE = "20250619"    # 종료 날짜 (YYYYMMDD) - 여기서 수정하세요!
+HARDCODED_END_DATE = "20250630"    # 종료 날짜 (YYYYMMDD) - 여기서 수정하세요!
 ENABLE_HARDCODED_MODE = True       # True: 하드코딩 모드 활성화, False: 명령행 인자 필수
+
+# Supabase 설정
+SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
+SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE')
 
 # API 설정
 API_URL = "http://www.localdata.go.kr/platform/rest/TO0/openDataApi"
@@ -51,6 +67,13 @@ DEFAULT_DAYS = 5  # 기본 기간 (5일)
 MAX_PAGES_PER_RANGE = 20  # 각 날짜 범위당 최대 페이지 수
 PAGE_SIZE_BGN_END = 500
 PAGE_SIZE_LASTMOD = 300
+
+# 시설 유형 매핑
+FACILITY_TYPE_MAPPING = {
+    "병원": "hospital",
+    "의원": "clinic", 
+    "약국": "pharmacy"
+}
 
 # ============================================================
 # 날짜 처리 함수들
@@ -365,11 +388,12 @@ def print_integrated_report(facilities_by_type: Dict[str, List[Dict]],
             facility['사업장명'] or '-',          # 사업자명
             address,                             # 주소
             phone,                              # 전화번호
-            opening_date or '-'                 # 인허가일
+            opening_date or '-',                # 인허가일
+            facility['관리번호'] or '-'          # 관리번호
         ])
     
     # 테이블 헤더
-    headers = ["시설유형", "구분", "사업자명", "주소", "전화번호", "인허가일"]
+    headers = ["시설유형", "구분", "사업자명", "주소", "전화번호", "인허가일", "관리번호"]
     
     # 구글 스프레드시트용 CSV 형식
     print("\n📊 구글 스프레드시트용 복사 형식")
@@ -412,6 +436,7 @@ def print_integrated_report(facilities_by_type: Dict[str, List[Dict]],
                 print(f"   📅 {opening_date}")
                 print(f"   📍 {facility['주소'] or '주소없음'}")
                 print(f"   📞 {facility['전화번호'] or '전화번호없음'}")
+                print(f"   🆔 {facility['관리번호'] or '관리번호없음'}")
                 print()
     
     # 통계 정보
@@ -513,6 +538,140 @@ def save_integrated_data(facilities_by_type: Dict[str, List[Dict]],
         print(f"❌ 파일 저장 실패: {e}")
 
 # ============================================================
+# Supabase 업로드 함수들
+# ============================================================
+
+def create_supabase_client() -> Optional[Client]:
+    """Supabase 클라이언트 생성"""
+    if not SUPABASE_AVAILABLE:
+        print("❌ supabase-py 라이브러리가 설치되어 있지 않습니다.")
+        return None
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        print("❌ Supabase 환경변수가 설정되어 있지 않습니다.")
+        print("   필요한 환경변수:")
+        print("   - NEXT_PUBLIC_SUPABASE_URL")
+        print("   - NEXT_SUPABASE_SERVICE_ROLE")
+        return None
+    
+    try:
+        return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    except Exception as e:
+        print(f"❌ Supabase 클라이언트 생성 실패: {e}")
+        return None
+
+def get_facility_type_id(supabase: Client, facility_type: str) -> Optional[str]:
+    """시설 유형 ID 조회"""
+    try:
+        slug = FACILITY_TYPE_MAPPING.get(facility_type)
+        if not slug:
+            print(f"⚠️ 알 수 없는 시설 유형: {facility_type}")
+            return None
+        
+        result = supabase.table('facility_types').select('id').eq('slug', slug).execute()
+        
+        if result.data:
+            return result.data[0]['id']
+        else:
+            print(f"⚠️ 데이터베이스에서 시설 유형을 찾을 수 없습니다: {slug}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ 시설 유형 ID 조회 실패: {e}")
+        return None
+
+def prepare_facility_data_for_supabase(facility: Dict, type_id: str) -> Dict:
+    """의료기관 데이터를 Supabase 형식으로 변환"""
+    # 개원일 처리
+    open_date = None
+    if facility.get('개원일'):
+        date_str = facility['개원일'].replace('-', '')
+        try:
+            parsed_date = datetime.strptime(date_str, '%Y%m%d')
+            open_date = parsed_date.date().isoformat()
+        except ValueError:
+            print(f"⚠️ 잘못된 날짜 형식: {facility['개원일']}")
+    
+    return {
+        'license_no': facility.get('관리번호', ''),
+        'type_id': type_id,
+        'name': facility.get('사업장명', ''),
+        'address_road': facility.get('주소', ''),
+        'tel': facility.get('전화번호', ''),
+        'open_date': open_date,
+        'status': 'operating'
+    }
+
+def upload_facilities_to_supabase(facilities_by_type: Dict[str, List[Dict]]) -> bool:
+    """의료기관 데이터를 Supabase에 업로드"""
+    supabase = create_supabase_client()
+    if not supabase:
+        return False
+    
+    print("\n🚀 Supabase에 데이터 업로드 시작...")
+    
+    total_uploaded = 0
+    total_errors = 0
+    
+    for facility_type, facilities in facilities_by_type.items():
+        if not facilities:
+            continue
+            
+        print(f"\n📤 {facility_type} 데이터 업로드 중... ({len(facilities)}개)")
+        
+        # 시설 유형 ID 조회
+        type_id = get_facility_type_id(supabase, facility_type)
+        if not type_id:
+            print(f"❌ {facility_type} 시설 유형 ID를 찾을 수 없습니다.")
+            total_errors += len(facilities)
+            continue
+        
+        # 배치 업로드 준비
+        batch_data = []
+        for facility in facilities:
+            if not facility.get('관리번호'):
+                print(f"⚠️ 관리번호가 없는 시설 건너뜀: {facility.get('사업장명', 'Unknown')}")
+                total_errors += 1
+                continue
+            
+            facility_data = prepare_facility_data_for_supabase(facility, type_id)
+            batch_data.append(facility_data)
+        
+        if not batch_data:
+            print(f"⚠️ {facility_type}: 업로드할 유효한 데이터가 없습니다.")
+            continue
+        
+        # 배치 업로드 실행
+        try:
+            # upsert로 중복 데이터 처리 (관리번호 기준)
+            result = supabase.table('facilities').upsert(
+                batch_data, 
+                on_conflict='license_no'
+            ).execute()
+            
+            uploaded_count = len(result.data) if result.data else 0
+            print(f"✅ {facility_type}: {uploaded_count}개 업로드 완료")
+            total_uploaded += uploaded_count
+            
+        except Exception as e:
+            print(f"❌ {facility_type} 업로드 실패: {e}")
+            total_errors += len(batch_data)
+    
+    # 결과 요약
+    print(f"\n📊 업로드 결과 요약:")
+    print(f"   ✅ 성공: {total_uploaded}개")
+    print(f"   ❌ 실패: {total_errors}개")
+    print(f"   📈 총 처리: {total_uploaded + total_errors}개")
+    
+    if total_uploaded > 0:
+        print(f"\n🎉 Supabase 업로드가 완료되었습니다!")
+        print(f"   데이터베이스에서 확인하세요: {SUPABASE_URL}")
+        return True
+    else:
+        print(f"\n😞 업로드된 데이터가 없습니다.")
+        return False
+
+# ============================================================
 # 메인 함수
 # ============================================================
 
@@ -528,10 +687,19 @@ def main():
   %(prog)s --current-week                 # 현재 주의 데이터
   %(prog)s --start-date 2025-06-08 --days 5  # 2025-06-08부터 5일간
   %(prog)s --week 2025-06-15 --save integrated_report.json  # 결과를 파일로 저장
+  %(prog)s --upload-to-supabase           # 하드코딩 모드로 데이터 수집 후 Supabase 업로드
+  %(prog)s --week 2025-06-15 --upload-to-supabase  # 특정 주 데이터를 Supabase에 업로드
   
 하드코딩 모드 사용법:
   1. 파일 상단의 HARDCODED_START_DATE, HARDCODED_END_DATE 수정
   2. python %(prog)s 실행 (인자 없이)
+
+Supabase 업로드 사용법:
+  1. supabase-py 라이브러리 설치: pip install supabase
+  2. 환경변수 설정:
+     export NEXT_PUBLIC_SUPABASE_URL="your_supabase_url"
+     export NEXT_SUPABASE_SERVICE_ROLE="your_service_role_key"
+  3. --upload-to-supabase 옵션과 함께 실행
         """
     )
     
@@ -549,6 +717,8 @@ def main():
                        help=f'추출 기간 (일수, 기본값: {DEFAULT_DAYS})')
     parser.add_argument('--save', type=str, metavar='FILENAME',
                        help='결과를 JSON 파일로 저장')
+    parser.add_argument('--upload-to-supabase', action='store_true',
+                       help='데이터를 Supabase에 업로드')
     
     args = parser.parse_args()
     
@@ -590,6 +760,11 @@ def main():
     
     # 통합 리포트 출력
     print_integrated_report(facilities_by_type, display_start, display_end, args.save)
+    
+    # Supabase 업로드
+    if args.upload_to_supabase:
+        success = upload_facilities_to_supabase(facilities_by_type)
+        return 0 if success else 1
 
 if __name__ == "__main__":
     main() 
