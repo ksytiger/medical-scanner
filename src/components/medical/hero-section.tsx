@@ -153,7 +153,7 @@ export default function HeroSection() {
               variants={itemVariants}
             >
               {[
-                { value: "10K+", label: "등록된 기관" },
+                { value: "20K+", label: "등록된 기관" },
                 { value: "24h", label: "실시간 업데이트" },
                 { value: "99.9%", label: "정확도" },
               ].map((stat, index) => (

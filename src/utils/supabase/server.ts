@@ -53,7 +53,7 @@ export async function createServerSupabaseAdminClient() {
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_SUPABASE_SERVICE_ROLE!,
+    process.env.SUPABASE_SERVICE_ROLE!,
     {
       cookies: {
         get(name: string) {
