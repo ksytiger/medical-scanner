@@ -35,7 +35,7 @@ ENABLE_HARDCODED_MODE = True       # True: 하드코딩 모드 활성화, False:
 # API 설정
 API_URL = "http://www.localdata.go.kr/platform/rest/TO0/openDataApi"
 AUTH_KEYS = [
-    "k8ClVr9qMtXeZqrlBAgXAraxYweS6wAY4aabuXLwMtA=",  # 기본 키
+    "cPf6Cnhiz8tSZsow6jIGOnyndwJnDO2gNz9qLUIYQ90=",  # 기본 키
     "89dp30YYjiDahshFV4xPe11tJPooygtb9/z3XtSB2EU="   # 백업 키
 ]
 SERVICE_ID = "01_01_02_P"  # 의료기관 서비스 ID

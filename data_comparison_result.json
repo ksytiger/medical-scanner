@@ -1,0 +1,52 @@
+{
+  "date": "2025-06-20",
+  "summary": {
+    "pharmacy": {
+      "medical_count": 0,
+      "integrated_count": 1,
+      "only_in_medical": 0,
+      "only_in_integrated": 1,
+      "common": 0
+    },
+    "clinic": {
+      "medical_count": 5,
+      "integrated_count": 5,
+      "only_in_medical": 0,
+      "only_in_integrated": 0,
+      "common": 5
+    },
+    "hospital": {
+      "medical_count": 0,
+      "integrated_count": 0,
+      "only_in_medical": 0,
+      "only_in_integrated": 0,
+      "common": 0
+    }
+  },
+  "differences": {},
+  "unique_in_medical": {
+    "pharmacy": [],
+    "clinic": [],
+    "hospital": []
+  },
+  "unique_in_integrated": {
+    "pharmacy": [
+      {
+        "mgtNo": "PHMD120253740106084000003",
+        "bplcNm": "영통 순수약국",
+        "rdnWhlAddr": "경기도 수원시 영통구 봉영로 1612, 보보스프라자 219호 (영통동)",
+        "apvPermYmd": "2025-06-20",
+        "uptaeNm": null,
+        "siteTel": null,
+        "source": "integratedMedicalData.py"
+      }
+    ],
+    "clinic": [],
+    "hospital": []
+  },
+  "common": {
+    "pharmacy": 0,
+    "clinic": 5,
+    "hospital": 0
+  }
+}
