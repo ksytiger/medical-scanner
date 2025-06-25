@@ -12,6 +12,7 @@
  * 4. 구조화된 데이터(JSON-LD) 적용
  * 5. 웹 앱 매니페스트 연결
  * 6. 인증 상태 관리 (AuthProvider)
+ * 7. 채널톡 고객상담 채팅 위젯 (동적 초기화)
  *
  * 구현 로직:
  * - Next.js 메타데이터 API를 사용한 SEO 최적화
@@ -19,6 +20,7 @@
  * - 공유 가능한 siteConfig를 통한 일관된 메타데이터 관리
  * - Vercel Analytics 통합
  * - AuthProvider를 통한 인증 상태 전역 관리
+ * - 채널톡 JavaScript SDK 통합 (인증 상태별 동적 초기화)
  *
  * @dependencies
  * - next/font/google
@@ -27,6 +29,7 @@
  * - @/components/seo/JsonLd
  * - @/utils/seo/constants
  * - @/components/auth/auth-provider
+ * - @/components/channel-io
  */
 
 import type { Metadata, Viewport } from "next";
@@ -38,6 +41,8 @@ import { siteConfig } from "@/utils/seo/constants";
 import AuthProvider from "@/components/auth/auth-provider";
 import { Providers } from "./providers";
 import Navbar from "@/components/nav";
+
+import ChannelIO from "@/components/channel-io";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -139,6 +144,11 @@ export const metadata: Metadata = {
       // "en-US": `${siteConfig.url}/en`,
     },
   },
+  verification: {
+    other: {
+      "naver-site-verification": "bac5e980f710bfe8f31a3d0cc5fc02515ef821d5",
+    },
+  },
 };
 
 export default function RootLayout({
@@ -156,6 +166,7 @@ export default function RootLayout({
           <AuthProvider>
             <Navbar />
             <main className="flex-1">{children}</main>
+            <ChannelIO />
           </AuthProvider>
         </Providers>
         <Analytics />

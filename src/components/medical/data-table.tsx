@@ -32,7 +32,6 @@ import {
   MapPin,
   Phone,
   Calendar,
-  Users,
 } from "lucide-react";
 import type { HospitalData } from "@/lib/medical/types";
 import { format } from "date-fns";
@@ -42,6 +41,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { differenceInDays } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 interface DataTableProps {
   data: HospitalData[];
@@ -96,9 +97,16 @@ function MobileCard({ hospital }: { hospital: HospitalData }) {
             <span className="text-[13px] text-gray-500 font-medium min-w-[50px]">
               개원일
             </span>
-            <span className="text-[14px] text-gray-800 font-medium">
-              {format(new Date(hospital.openDate), "yyyy년 MM월 dd일")}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[14px] text-gray-800 font-medium">
+                {format(new Date(hospital.openDate), "yyyy년 MM월 dd일")}
+              </span>
+              {isNewFacility(hospital.openDate) && (
+                <Badge className="bg-red-500 hover:bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-md animate-pulse">
+                  NEW
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* 연락처 */}
@@ -113,25 +121,18 @@ function MobileCard({ hospital }: { hospital: HospitalData }) {
               {hospital.phone || "정보 없음"}
             </span>
           </div>
-
-          {/* 전문의 */}
-          <div className="flex items-center gap-3 py-1">
-            <Users className="h-4 w-4 text-[#1B59FA] flex-shrink-0" />
-            <span className="text-[13px] text-gray-500 font-medium min-w-[50px]">
-              전문의
-            </span>
-            <span
-              className={`text-[14px] ${hospital.specialistCount ? "text-gray-800" : "text-gray-400"}`}
-            >
-              {hospital.specialistCount
-                ? `${hospital.specialistCount}명`
-                : "정보 없음"}
-            </span>
-          </div>
         </div>
       </CardContent>
     </Card>
   );
+}
+
+// 개원일이 최근 3일 이내인지 확인하는 함수
+function isNewFacility(openDate: string): boolean {
+  const today = new Date();
+  const facilityOpenDate = new Date(openDate);
+  const daysDifference = differenceInDays(today, facilityOpenDate);
+  return daysDifference >= 0 && daysDifference <= 3;
 }
 
 export default function DataTable({
@@ -179,7 +180,7 @@ export default function DataTable({
                     <TableHead className="w-[140px] min-w-[140px]">
                       병의원명
                     </TableHead>
-                    <TableHead className="w-[280px] min-w-[280px]">
+                    <TableHead className="w-[400px] min-w-[400px]">
                       주소
                     </TableHead>
                     <TableHead className="w-[130px] min-w-[130px]">
@@ -188,15 +189,12 @@ export default function DataTable({
                     <TableHead className="w-[110px] min-w-[110px] text-center">
                       개원일
                     </TableHead>
-                    <TableHead className="w-[110px] min-w-[110px] text-center">
-                      전문의 수
-                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
+                      <TableCell colSpan={5} className="h-24 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Loader2 className="h-5 w-5 animate-spin text-[#1B59FA]" />
                           <span className="text-gray-500">
@@ -247,7 +245,7 @@ export default function DataTable({
                             </TooltipTrigger>
                             <TooltipContent
                               side="top"
-                              className="max-w-[400px] whitespace-normal"
+                              className="max-w-[500px] whitespace-normal"
                             >
                               <p>{hospital.address}</p>
                             </TooltipContent>
@@ -262,22 +260,25 @@ export default function DataTable({
                           </div>
                         </TableCell>
                         <TableCell className="text-center text-sm">
-                          {format(new Date(hospital.openDate), "yyyy-MM-dd")}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {hospital.specialistCount ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">
-                              {hospital.specialistCount}명
+                          <div className="flex items-center justify-center gap-2">
+                            <span>
+                              {format(
+                                new Date(hospital.openDate),
+                                "yyyy-MM-dd",
+                              )}
                             </span>
-                          ) : (
-                            "-"
-                          )}
+                            {isNewFacility(hospital.openDate) && (
+                              <Badge className="bg-red-500 hover:bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-md animate-pulse">
+                                NEW
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
+                      <TableCell colSpan={5} className="h-24 text-center">
                         검색 결과가 없습니다.
                       </TableCell>
                     </TableRow>

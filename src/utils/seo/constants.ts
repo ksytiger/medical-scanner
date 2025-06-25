@@ -23,19 +23,23 @@
 export const siteConfig = {
   name: "개원스캐너 - 가장 빠른 병의원 개원정보",
   description:
-    "최신 Next.js와 Supabase를 활용한 풀스택 개발을 위한 보일러플레이트",
+    "개원스캐너는 병의원, 약국의 최신 개원일을 제공하는 플랫폼입니다. 3 영업일내 신규 개원 의료기관 정보를 가장 빠르게 제공합니다. 더 자세한 내용을 확인하려면 아래 링크를 클릭해 주세요.",
   url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-  ogImage: "/og-image.png",
+  ogImage: "/lightning-icon.svg",
   locale: "ko_KR",
   keywords: [
-    "대모산개발단",
-    "demodev",
-    "Next.js",
-    "Supabase",
-    "Boilerplate",
-    "보일러플레이트",
+    "개원스캐너",
+    "개원예정병원",
+    "신규개원병원",
+    "의료기기영업",
+    "제약영업",
+    "병원리스트",
+    "병원영업",
+    "병원영업정보",
+    "신규병원리스트",
+    "의료영업",
   ],
-  twitterHandle: "@demodev",
+  twitterHandle: "@medicalscanner",
 };
 
 export const getAbsoluteUrl = (path: string): string => {

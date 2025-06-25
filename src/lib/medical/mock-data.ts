@@ -1,11 +1,11 @@
 /**
  * @file mock-data.ts
  * @description 의료기관 스캐너용 Mock 데이터
- * 
+ *
  * 실제 운영 시에는 Supabase 데이터베이스에서 데이터를 가져오도록 변경 예정
  */
 
-import type { HospitalData } from "./types"
+import type { HospitalData } from "./types";
 
 export const mockHospitalData: HospitalData[] = [
   {
@@ -14,7 +14,7 @@ export const mockHospitalData: HospitalData[] = [
     category: "의원",
     address: "서울 강남구 테헤란로 123",
     phone: "02-123-4567",
-    openDate: "2025-05-24",
+    openDate: "2024-12-23",
     specialistCount: 3,
     sido: "서울",
     gugun: "강남구",
@@ -25,7 +25,7 @@ export const mockHospitalData: HospitalData[] = [
     category: "병원",
     address: "서울 서초구 서초대로 456",
     phone: "02-456-7890",
-    openDate: "2025-05-20",
+    openDate: "2024-12-22",
     specialistCount: 2,
     sido: "서울",
     gugun: "서초구",
@@ -36,7 +36,7 @@ export const mockHospitalData: HospitalData[] = [
     category: "병원",
     address: "서울 송파구 올림픽로 789",
     phone: "02-789-0123",
-    openDate: "2025-05-15",
+    openDate: "2024-12-24",
     specialistCount: 4,
     sido: "서울",
     gugun: "송파구",
@@ -173,4 +173,4 @@ export const mockHospitalData: HospitalData[] = [
     sido: "서울",
     gugun: "중구",
   },
-] 
+];

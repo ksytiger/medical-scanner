@@ -1,5 +1,6 @@
 import requests
 import json
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import time
@@ -96,7 +97,6 @@ class MedicalDataAPI:
             "opnSvcId": self.service_ids[facility_type],
             "bgnYmd": start_dt.strftime("%Y%m%d"),
             "endYmd": end_dt.strftime("%Y%m%d"),
-            "resultType": "json",
             "pageSize": "1000"
         }
         
@@ -107,28 +107,13 @@ class MedicalDataAPI:
     
     def _fetch_by_update_date(self, target_date: str, facility_type: str) -> List[Dict]:
         """데이터갱신일자 기준으로 데이터 검색"""
-        # 타겟 날짜로부터 30일 전부터 검색 (미래 날짜 제한 회피)
+        # 더 넓은 범위로 검색하여 최신 인허가 데이터 누락 방지
         target_dt = datetime.strptime(target_date, "%Y%m%d")
         today = datetime.now()
         
-        # 데이터갱신일자는 전월 24일 이후만 가능하다는 제약이 있음
-        # 현재 월의 24일 이전이면 전월 24일부터, 이후면 현재 월 24일부터
-        current_month_24th = datetime(today.year, today.month, 24)
-        if today < current_month_24th:
-            # 전월 24일
-            if today.month == 1:
-                start_limit = datetime(today.year - 1, 12, 24)
-            else:
-                start_limit = datetime(today.year, today.month - 1, 24)
-        else:
-            # 현재 월 24일
-            start_limit = current_month_24th
-        
-        # 시작일 설정 (타겟 날짜 30일 전 vs 제한일 중 더 늦은 날짜)
-        start_dt = max(target_dt - timedelta(days=30), start_limit)
-        
-        # 종료일 설정
-        end_dt = min(target_dt + timedelta(days=30), today)
+        # 타겟 날짜부터 3일 후까지 검색 (최신 인허가 데이터는 보통 며칠 후에 갱신됨)
+        start_dt = target_dt
+        end_dt = min(target_dt + timedelta(days=3), today)
         
         # 시작일이 종료일보다 늦으면 검색하지 않음
         if start_dt > end_dt:
@@ -140,7 +125,6 @@ class MedicalDataAPI:
             "opnSvcId": self.service_ids[facility_type],
             "lastModTsBgn": start_dt.strftime("%Y%m%d"),
             "lastModTsEnd": end_dt.strftime("%Y%m%d"),
-            "resultType": "json",
             "pageSize": "1000"
         }
         
@@ -165,66 +149,114 @@ class MedicalDataAPI:
                 response = requests.get(self.base_url, params=params, timeout=30)
                 response.raise_for_status()
                 
-                # 응답 처리
-                data = response.json()
+                # 응답 형식 확인
+                content_type = response.headers.get('Content-Type', '').lower()
+                print(f"[디버깅] Content-Type: {content_type}")
                 
-                # 전체 응답 구조 확인 (첫 페이지만)
-                if page_index == 1:
-                    print(f"\n[디버깅] API 응답 구조:")
-                    print(json.dumps(data, ensure_ascii=False, indent=2)[:2000] + "...")
-                
-                # 에러 체크
-                if "result" in data and "header" in data["result"]:
-                    header = data["result"]["header"]
-                    if "process" in header and "code" in header["process"]:
-                        # code가 "00" 또는 "000"이 아닌 경우만 에러로 처리
-                        if header["process"]["code"] not in ["00", "000"]:
-                            print(f"[디버깅] API 에러: {header['process'].get('message', 'Unknown error')}")
-                            break
-                
-                # 결과 확인 - 다양한 응답 구조 처리
+                # XML 또는 JSON 응답 처리
+                data = None
                 rows = []
+                total_count = 0
                 
-                # 케이스 1: result.body 구조
-                if "result" in data and "body" in data["result"]:
-                    body = data["result"]["body"]
-                    
-                    # body가 단일 객체인 경우 처리
-                    if isinstance(body, dict):
-                        # body 안에 rows 키가 있는지 확인
-                        if "rows" in body:
-                            rows_data = body["rows"]
-                            # rows가 리스트이고 첫 번째 요소가 @class: list인 경우 처리
-                            if isinstance(rows_data, list) and len(rows_data) > 0:
-                                # 첫 번째 요소가 객체이고 row 키를 가진 경우
-                                if isinstance(rows_data[0], dict) and "row" in rows_data[0]:
-                                    # row 안의 실제 데이터 추출
-                                    rows = rows_data[0]["row"]
-                                elif isinstance(rows_data[0], dict) and rows_data[0].get("@class") == "list":
-                                    # 실제 데이터는 두 번째 요소부터
-                                    rows = rows_data[1:] if len(rows_data) > 1 else []
-                                else:
-                                    rows = rows_data
+                if 'xml' in content_type:
+                    # XML 파싱
+                    print(f"[디버깅] XML 응답 파싱 중...")
+                    try:
+                        root = ET.fromstring(response.text)
+                        
+                        # XML에서 rows 추출
+                        xml_rows = root.findall('.//row')
+                        print(f"[디버깅] XML에서 {len(xml_rows)}개 row 발견")
+                        
+                        # XML row를 딕셔너리로 변환
+                        for xml_row in xml_rows:
+                            row_dict = {}
+                            for child in xml_row:
+                                row_dict[child.tag] = child.text if child.text else ""
+                            rows.append(row_dict)
+                        
+                        # 전체 개수 추출 (첫 페이지만)
+                        if page_index == 1:
+                            total_count_elem = root.find('.//totalCount')
+                            if total_count_elem is not None:
+                                total_count = int(total_count_elem.text or 0)
                             else:
-                                rows = rows_data if isinstance(rows_data, list) else [rows_data]
-                        else:
-                            # body 자체가 데이터인 경우
-                            rows = [body]
-                    elif isinstance(body, list):
-                        rows = body
-                # 케이스 2: body 직접 접근
-                elif "body" in data:
-                    rows = data["body"]
-                # 케이스 3: row 직접 접근
-                elif "row" in data:
-                    rows = data["row"]
-                # 케이스 4: localdata 구조
-                elif "localdata" in data:
-                    rows = data["localdata"]
+                                total_count = len(rows)  # fallback
+                        
+                    except ET.ParseError as pe:
+                        print(f"[디버깅] XML 파싱 에러: {pe}")
+                        break
+                else:
+                    # JSON 파싱 (기존 로직)
+                    try:
+                        data = response.json()
+                        
+                        # 전체 응답 구조 확인 (첫 페이지만)
+                        if page_index == 1:
+                            print(f"\n[디버깅] API 응답 구조:")
+                            print(json.dumps(data, ensure_ascii=False, indent=2)[:2000] + "...")
+                        
+                        # 에러 체크
+                        if "result" in data and "header" in data["result"]:
+                            header = data["result"]["header"]
+                            if "process" in header and "code" in header["process"]:
+                                # code가 "00" 또는 "000"이 아닌 경우만 에러로 처리
+                                if header["process"]["code"] not in ["00", "000"]:
+                                    print(f"[디버깅] API 에러: {header['process'].get('message', 'Unknown error')}")
+                                    break
+                    except json.JSONDecodeError as je:
+                        print(f"[디버깅] JSON 파싱 에러: {je}")
+                        break
                 
-                # 리스트가 아닌 경우 리스트로 변환
-                if not isinstance(rows, list):
-                    rows = [rows] if rows else []
+                # JSON 응답에서 rows 추출 (data가 있을 때만)
+                if data is not None:
+                    # 케이스 1: result.body 구조
+                    if "result" in data and "body" in data["result"]:
+                        body = data["result"]["body"]
+                        
+                        # body가 단일 객체인 경우 처리
+                        if isinstance(body, dict):
+                            # body 안에 rows 키가 있는지 확인
+                            if "rows" in body:
+                                rows_data = body["rows"]
+                                # rows가 리스트이고 첫 번째 요소가 @class: list인 경우 처리
+                                if isinstance(rows_data, list) and len(rows_data) > 0:
+                                    # 첫 번째 요소가 객체이고 row 키를 가진 경우
+                                    if isinstance(rows_data[0], dict) and "row" in rows_data[0]:
+                                        # row 안의 실제 데이터 추출
+                                        rows = rows_data[0]["row"]
+                                    elif isinstance(rows_data[0], dict) and rows_data[0].get("@class") == "list":
+                                        # 실제 데이터는 두 번째 요소부터
+                                        rows = rows_data[1:] if len(rows_data) > 1 else []
+                                    else:
+                                        rows = rows_data
+                                else:
+                                    rows = rows_data if isinstance(rows_data, list) else [rows_data]
+                            else:
+                                # body 자체가 데이터인 경우
+                                rows = [body]
+                        elif isinstance(body, list):
+                            rows = body
+                    # 케이스 2: body 직접 접근
+                    elif "body" in data:
+                        rows = data["body"]
+                    # 케이스 3: row 직접 접근
+                    elif "row" in data:
+                        rows = data["row"]
+                    # 케이스 4: localdata 구조
+                    elif "localdata" in data:
+                        rows = data["localdata"]
+                    
+                    # 리스트가 아닌 경우 리스트로 변환
+                    if not isinstance(rows, list):
+                        rows = [rows] if rows else []
+                        
+                    # 페이징 정보 확인 (JSON에서)
+                    if "result" in data and "header" in data["result"] and "paging" in data["result"]["header"]:
+                        paging = data["result"]["header"]["paging"]
+                        total_count = int(paging.get("totalCount", 0))
+                    else:
+                        total_count = len(rows)
                 
                 print(f"[디버깅] 페이지 {page_index}에서 {len(rows)}개 행 발견")
                 
@@ -255,16 +287,10 @@ class MedicalDataAPI:
                             print(json.dumps(filtered_row, ensure_ascii=False, indent=2))
                 
                 print(f"[디버깅] 페이지 {page_index}에서 타겟 날짜와 일치하는 데이터: {page_data_count}개")
-                
-                # 페이징 정보 확인
-                total_count = 0
-                if "result" in data and "header" in data["result"] and "paging" in data["result"]["header"]:
-                    paging = data["result"]["header"]["paging"]
-                    total_count = int(paging.get("totalCount", 0))
-                    print(f"[디버깅] 전체 데이터 수: {total_count}")
+                print(f"[디버깅] 전체 데이터 수: {total_count}")
                 
                 # 더 이상 데이터가 없으면 종료
-                if len(rows) < int(params["pageSize"]) or page_index * int(params["pageSize"]) >= total_count:
+                if len(rows) < int(params["pageSize"]) or (total_count > 0 and page_index * int(params["pageSize"]) >= total_count):
                     break
                 
                 page_index += 1
@@ -390,7 +416,7 @@ if __name__ == "__main__":
     api = MedicalDataAPI()
     
     # 테스트할 날짜
-    target_date = "2025-06-16"
+    target_date = "2025-06-20"
     
     print(f"\n🏥 한국 지역 공공데이터 의료기관 정보 수집기 🏥")
     print(f"{'='*80}")

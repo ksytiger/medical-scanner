@@ -132,6 +132,7 @@ export async function getMedicalFacilities(
       .from("medical_facilities")
       .select("*", { count: "exact", head: true });
 
+    // 성능 최적화: 필요한 필드만 선택하여 데이터 전송량 감소
     let dataQuery = supabase
       .from("medical_facilities")
       .select(
@@ -141,14 +142,7 @@ export async function getMedicalFacilities(
         business_type,
         license_date,
         location_phone,
-        medical_institution_type,
-        medical_personnel_count,
-        inpatient_room_count,
-        bed_count,
-        total_area,
-        medical_subject_names,
-        road_full_address,
-        road_postal_code
+        road_full_address
       `,
       )
       .order("license_date", { ascending: false });
@@ -317,15 +311,15 @@ export async function getMedicalFacilities(
         service_type: facility.business_type,
         license_date: facility.license_date,
         phone: facility.location_phone,
-        healthcare_type: facility.medical_institution_type,
-        num_doctors: facility.medical_personnel_count,
-        num_rooms: facility.inpatient_room_count,
-        num_beds: facility.bed_count,
-        total_area: facility.total_area,
+        healthcare_type: null, // 최적화를 위해 제거
+        num_doctors: null, // 최적화를 위해 제거
+        num_rooms: null, // 최적화를 위해 제거
+        num_beds: null, // 최적화를 위해 제거
+        total_area: null, // 최적화를 위해 제거
         address_id: 0, // 사용하지 않음
         subject_count: 0, // 사용하지 않음
         road_address: facility.road_full_address,
-        road_postcode: facility.road_postal_code,
+        road_postcode: null, // 최적화를 위해 제거
       }),
     );
 
