@@ -39,7 +39,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { LoginButton, KakaoButton } from "@/components/auth/buttons";
+import {
+  LoginButton,
+  KakaoButton,
+  GoogleButton,
+} from "@/components/auth/buttons";
 import { login } from "@/actions/auth";
 import { useAuth } from "@/components/auth/auth-provider";
 
@@ -171,6 +175,10 @@ export function LoginForm({
       </div>
 
       <KakaoButton />
+
+      <div className="mt-3">
+        <GoogleButton />
+      </div>
 
       <div className="text-center">
         <Button

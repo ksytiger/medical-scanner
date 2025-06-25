@@ -111,7 +111,7 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/lightning-icon.svg", type: "image/svg+xml" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/lightning-icon.svg", type: "image/svg+xml" },
       { url: "/icons/icon-192x192.png", type: "image/png", sizes: "192x192" },
       { url: "/icons/icon-256x256.png", type: "image/png", sizes: "256x256" },
       { url: "/icons/icon-384x384.png", type: "image/png", sizes: "384x384" },

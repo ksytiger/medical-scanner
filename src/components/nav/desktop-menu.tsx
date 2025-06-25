@@ -60,7 +60,6 @@ export default function DesktopMenu() {
         {user ? (
           <>
             <div className="text-sm">
-              <span className="hidden lg:inline">환영합니다, </span>
               <span className="font-medium">{user.email?.split("@")[0]}</span>님
             </div>
             <UserNav />

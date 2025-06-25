@@ -32,6 +32,8 @@ import {
   MapPin,
   Phone,
   Calendar,
+  Lock,
+  Eye,
 } from "lucide-react";
 import type { HospitalData } from "@/lib/medical/types";
 import { format } from "date-fns";
@@ -43,6 +45,10 @@ import {
 } from "@/components/ui/tooltip";
 import { differenceInDays } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/components/auth/auth-provider";
+import { maskHospitalDataArray } from "@/lib/medical/data-masking";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import Link from "next/link";
 
 interface DataTableProps {
   data: HospitalData[];
@@ -53,16 +59,34 @@ interface DataTableProps {
 }
 
 // 모바일 카드 컴포넌트
-function MobileCard({ hospital }: { hospital: HospitalData }) {
+function MobileCard({
+  hospital,
+  isAuthenticated,
+}: {
+  hospital: HospitalData;
+  isAuthenticated: boolean;
+}) {
   return (
     <Card className="mb-2 border border-gray-200 bg-white shadow-sm hover:shadow-lg hover:border-[#1B59FA]/30 transition-all duration-200 overflow-hidden">
       <CardContent className="p-4">
         {/* 상단 헤더 영역 */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-[17px] text-gray-900 leading-tight">
-              {hospital.name}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-[17px] text-gray-900 leading-tight">
+                {hospital.name}
+              </h3>
+              {!isAuthenticated && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Lock className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>회원가입 후 전체 정보를 확인하세요</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </div>
           <span
             className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium flex-shrink-0 ${
@@ -142,9 +166,36 @@ export default function DataTable({
   onPageChange,
   isLoading = false,
 }: DataTableProps) {
+  const { user } = useAuth();
+  const isAuthenticated = !!user;
+
+  // 인증 상태에 따라 데이터 마스킹 처리
+  const processedData = maskHospitalDataArray(data, isAuthenticated);
+
   return (
     <TooltipProvider>
       <div>
+        {/* 비인증 사용자를 위한 알림 */}
+        {!isAuthenticated && data.length > 0 && (
+          <Alert className="mb-4 border-[#1B59FA]/20 bg-[#1B59FA]/5">
+            <Lock className="h-4 w-4 text-[#1B59FA]" />
+            <AlertDescription className="text-gray-700">
+              <div className="flex items-center justify-between">
+                <span>
+                  일부 정보가 마스킹되어 표시됩니다. 전체 정보를 확인하려면{" "}
+                  <Link
+                    href="/login"
+                    className="text-[#1B59FA] hover:text-blue-700 font-medium underline underline-offset-2"
+                  >
+                    로그인
+                  </Link>
+                  해주세요.
+                </span>
+                <Eye className="h-4 w-4 text-[#1B59FA] flex-shrink-0 ml-2" />
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
         {/* 모바일 카드 레이아웃 */}
         <div className="block lg:hidden">
           {isLoading ? (
@@ -154,10 +205,14 @@ export default function DataTable({
                 <span className="text-gray-500">데이터를 불러오는 중...</span>
               </div>
             </div>
-          ) : data.length > 0 ? (
+          ) : processedData.length > 0 ? (
             <div>
-              {data.map((hospital) => (
-                <MobileCard key={hospital.id} hospital={hospital} />
+              {processedData.map((hospital) => (
+                <MobileCard
+                  key={hospital.id}
+                  hospital={hospital}
+                  isAuthenticated={isAuthenticated}
+                />
               ))}
             </div>
           ) : (
@@ -203,8 +258,8 @@ export default function DataTable({
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : data.length > 0 ? (
-                    data.map((hospital) => (
+                  ) : processedData.length > 0 ? (
+                    processedData.map((hospital) => (
                       <TableRow key={hospital.id}>
                         <TableCell className="text-center">
                           <span
@@ -224,15 +279,24 @@ export default function DataTable({
                         <TableCell className="font-medium">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div className="truncate cursor-help">
-                                {hospital.name}
+                              <div className="flex items-center gap-2 truncate cursor-help">
+                                <span className="truncate">
+                                  {hospital.name}
+                                </span>
+                                {!isAuthenticated && (
+                                  <Lock className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                )}
                               </div>
                             </TooltipTrigger>
                             <TooltipContent
                               side="top"
                               className="max-w-[300px] whitespace-normal"
                             >
-                              <p>{hospital.name}</p>
+                              <p>
+                                {hospital.name}
+                                {!isAuthenticated &&
+                                  " (회원가입 후 전체 정보 확인 가능)"}
+                              </p>
                             </TooltipContent>
                           </Tooltip>
                         </TableCell>
@@ -290,7 +354,7 @@ export default function DataTable({
         </div>
 
         {/* 페이지네이션 */}
-        {!isLoading && data.length > 0 && totalPages > 1 && (
+        {!isLoading && processedData.length > 0 && totalPages > 1 && (
           <div className="flex items-center justify-center space-x-2 py-6">
             <Button
               variant="outline"

@@ -41,7 +41,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { SignupButton, KakaoButton } from "@/components/auth/buttons";
+import {
+  SignupButton,
+  KakaoButton,
+  GoogleButton,
+} from "@/components/auth/buttons";
 import {
   PasswordRequirements,
   isPasswordValid,
@@ -195,6 +199,9 @@ export function SignupForm({
         className={isSignupSuccessful ? "opacity-50 pointer-events-none" : ""}
       >
         <KakaoButton />
+        <div className="mt-3">
+          <GoogleButton />
+        </div>
       </div>
 
       <div className="text-center">
